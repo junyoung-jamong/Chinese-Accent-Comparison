@@ -1,10 +1,9 @@
 package com.smartjackwp.junyoung.functionalsampleproject;
 
 import android.graphics.Color;
-import android.media.MediaPlayer;
-import android.media.MediaRecorder;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
+import android.view.View;
 import android.widget.Button;
 
 import com.jjoe64.graphview.GraphView;
@@ -22,50 +21,84 @@ import be.tarsos.dsp.pitch.PitchDetectionResult;
 import be.tarsos.dsp.pitch.PitchProcessor;
 
 public class PitchRealTimeGraphActivity extends AppCompatActivity {
-    Button button;
-    Button stopButton;
-    Button playButton;
-
-    MediaPlayer player;
-    MediaRecorder recorder;
-    String fileName;
+    Button recordButton;
 
     AudioDispatcher dispatcher;
     AudioProcessor pitchProcessor;
     Thread audioThread;
 
-    Boolean state = false;
+    GraphView realTimeGraph;
+    GraphView staticGraph;
 
-    GraphView graph;
+    Boolean recordState = false;
 
-    private LineGraphSeries<DataPoint> mSeries1;
+    private LineGraphSeries<DataPoint> realTimeSeries; //Series for real-time realTimeGraph
+    private LineGraphSeries<DataPoint> staticSeries; //Series for static realTimeGraph
     private double graphLastXValue = 1d;
+    private double staticGraphLastXValue = 1d;
 
-    int windowSize = 10;
-    ArrayList<Float> pitchWindow = new ArrayList<>();
-    float pitch_avg = 0;
+    ArrayList<Point> recordedPoints;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_pitch_real_time_graph);
 
-        button = findViewById(R.id.recordButton);
-        graph = findViewById(R.id.realTimeGraph);
+        realTimeGraph = findViewById(R.id.realTimeGraph);
+        staticGraph = findViewById(R.id.staticGraph);
+        staticGraph.getGridLabelRenderer().setHorizontalLabelsVisible(false);
+        staticGraph.getGridLabelRenderer().setVerticalLabelsVisible(false);
 
-        mSeries1 = new LineGraphSeries<>();
-        mSeries1.setColor(Color.rgb(0xF1,0x70,0x68));
-        graph.addSeries(mSeries1);
-        graph.getGridLabelRenderer().setHorizontalLabelsVisible(false);
-        graph.getGridLabelRenderer().setVerticalLabelsVisible(false);
+        realTimeSeries = new LineGraphSeries<>();
+        realTimeSeries.setColor(Color.rgb(0xF1,0x70,0x68));
+        realTimeSeries.setDataPointsRadius(50);
+        realTimeSeries.setThickness(10);
+        realTimeGraph.addSeries(realTimeSeries);
+        realTimeGraph.getGridLabelRenderer().setHorizontalLabelsVisible(false);
+        realTimeGraph.getGridLabelRenderer().setVerticalLabelsVisible(false);
 
-        graph.getViewport().setXAxisBoundsManual(true);
-        graph.getViewport().setMinX(0);
-        graph.getViewport().setMaxX(100);
-        graph.getViewport().setMinY(-1);
-        graph.getViewport().setMaxY(300);
+        realTimeGraph.getViewport().setXAxisBoundsManual(true);
+        realTimeGraph.getViewport().setMinX(0);
+        realTimeGraph.getViewport().setMaxX(100);
+        realTimeGraph.getViewport().setMinY(-1);
+        realTimeGraph.getViewport().setMaxY(300);
+
+        recordButton = findViewById(R.id.recordButton);
+        recordButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if(recordState)
+                {
+                    staticGraph.removeAllSeries();
+                    staticSeries = new LineGraphSeries<>();
+                    staticSeries.setColor(Color.BLUE);
+                    staticSeries.setDataPointsRadius(50);
+                    staticSeries.setThickness(10);
+
+                    for(int i=0; i<recordedPoints.size(); i++)
+                        staticSeries.appendData(new DataPoint(recordedPoints.get(i).t, recordedPoints.get(i).x), true, 300);
+
+                    staticGraph.addSeries(staticSeries);
+                    recordButton.setText("시작");
+                    recordState = !recordState;
+                }
+                else
+                {
+                    recordedPoints = new ArrayList<>();
+                    staticGraphLastXValue = 1d;
+                    recordButton.setText("중지");
+                    recordState = !recordState;
+                }
+            }
+        });
 
         initPitcher();
+    }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+        releaseDispatcher();
     }
 
     public void initPitcher()
@@ -79,10 +112,7 @@ public class PitchRealTimeGraphActivity extends AppCompatActivity {
                 runOnUiThread(new Runnable() {
                     @Override
                     public void run() {
-                        if(state)
-                        {
-                            processPitch(pitchInHz);
-                        }
+                        processPitch(pitchInHz);
                     }
                 });
             }
@@ -91,25 +121,40 @@ public class PitchRealTimeGraphActivity extends AppCompatActivity {
         dispatcher.addAudioProcessor(pitchProcessor);
         audioThread = new Thread(dispatcher, "Audio Thread");
         audioThread.start();
-        state = true;
     }
 
     public void processPitch(float pitchInHz){
         if (pitchInHz < 0)
             pitchInHz = 20;
 
-        float pitchSum = pitch_avg*pitchWindow.size();
-        pitchSum += pitchInHz;
-        pitchWindow.add(pitchInHz);
-        if(pitchWindow.size() > windowSize)
-        {
-            float fistPitch = pitchWindow.remove(0);
-            pitchSum -= fistPitch;
-        }
-        if (pitchWindow.size() > 0)
-            pitch_avg = pitchSum/pitchWindow.size();
-
         graphLastXValue += 1d;
-        mSeries1.appendData(new DataPoint(graphLastXValue, pitch_avg), true, 300);
+        realTimeSeries.appendData(new DataPoint(graphLastXValue, pitchInHz), true, 300);
+
+        if(recordState)
+        {
+            staticGraphLastXValue += 1d;
+            recordedPoints.add(new Point(staticGraphLastXValue, pitchInHz));
+        }
+    }
+
+    public void releaseDispatcher()
+    {
+        if(dispatcher != null)
+        {
+            if(!dispatcher.isStopped())
+                dispatcher.stop();
+            dispatcher = null;
+        }
+    }
+
+    class Point{
+        public double t;
+        public float x;
+
+        public Point(double t, float x)
+        {
+            this.t = t;
+            this.x = x;
+        }
     }
 }
