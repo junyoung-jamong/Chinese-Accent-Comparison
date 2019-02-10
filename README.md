@@ -39,9 +39,19 @@ YIN 알고리즘은 아래와 같은 순서를 통해 원본 음성 데이터로
 5.	Parabolic interpolation
 6.	Best local estimate
 
-
 ## Similarity Measure
 두 F0 time series 간 유사도 측정을 위해 시계열을 grid-based matrix로 표현하고, matrix 표현 상에서의 유사도 비교 알고리즘인 GMED(Grid Matrix Euclidean Distance)와 GMDTW(Grid Matrix Dynamic Time Warping)을 사용한다. 
+
+## Android Sample Program
+
+> * [RecordPlayActivity](https://github.com/junyoung-jamong/Chinese-Accent-Comparison/blob/master/FunctionalSampleProject/app/src/main/java/com/smartjackwp/junyoung/functionalsampleproject/RecordPlayActivity.java)
+> * [PitchRealTimeGraphActivity](https://github.com/junyoung-jamong/Chinese-Accent-Comparison/blob/master/FunctionalSampleProject/app/src/main/java/com/smartjackwp/junyoung/functionalsampleproject/PitchRealTimeGraphActivity.java)
+
+#### RecordPlayActivity
+![](assets/images/play_record_activity.png)
+
+#### PitchRealTimeGraphActivity
+![](assets/images/pitch_real_time_graph.png)
 
 ## References
 > * [G. E. Poliner, et al., Melody transcription from music audio: Approaches and evaluation, 2007.](http://www.ee.columbia.edu/~graham/papers/PolinerEFGSO07.pdf)
