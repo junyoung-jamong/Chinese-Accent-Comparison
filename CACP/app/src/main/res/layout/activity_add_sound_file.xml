@@ -29,6 +29,7 @@
             android:layout_width="match_parent"
             android:layout_height="30dp"
             android:gravity="bottom"
+            android:paddingLeft="8dp"
             android:text="음성파일" />
 
         <LinearLayout
@@ -42,6 +43,8 @@
                 android:layout_height="match_parent"
                 android:layout_weight="1"
                 android:gravity="center_vertical"
+                android:paddingLeft="16dp"
+                android:singleLine="true"
                 android:text="파일을 선택하세요." />
 
             <Button
@@ -56,6 +59,7 @@
             android:layout_width="wrap_content"
             android:layout_height="30dp"
             android:gravity="bottom"
+            android:paddingLeft="8dp"
             android:text="제목" />
 
         <EditText
@@ -64,13 +68,16 @@
             android:layout_height="56dp"
             android:ems="10"
             android:hint="음성 제목"
-            android:inputType="textPersonName" />
+            android:inputType="textPersonName"
+            android:paddingLeft="16dp"
+            android:singleLine="true" />
 
         <TextView
             android:id="@+id/textView4"
             android:layout_width="match_parent"
             android:layout_height="30dp"
             android:gravity="bottom"
+            android:paddingLeft="8dp"
             android:text="자세히" />
 
         <EditText
@@ -81,7 +88,8 @@
             android:ems="10"
             android:gravity="top"
             android:hint="내용을 입력하세요."
-            android:inputType="textMultiLine" />
+            android:inputType="textMultiLine"
+            android:paddingLeft="16dp" />
 
     </LinearLayout>
 

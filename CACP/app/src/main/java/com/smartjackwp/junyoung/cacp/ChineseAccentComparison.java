@@ -1,9 +1,15 @@
 package com.smartjackwp.junyoung.cacp;
 
+import android.content.Context;
+import android.os.Environment;
+
+import com.smartjackwp.junyoung.cacp.Database.CacpDBManager;
 import com.smartjackwp.junyoung.cacp.Entity.AccentContents;
 
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.IOException;
+import java.io.RandomAccessFile;
 import java.nio.ByteOrder;
 import java.util.ArrayList;
 
@@ -17,9 +23,11 @@ import be.tarsos.dsp.io.android.AudioDispatcherFactory;
 import be.tarsos.dsp.pitch.PitchDetectionHandler;
 import be.tarsos.dsp.pitch.PitchDetectionResult;
 import be.tarsos.dsp.pitch.PitchProcessor;
+import be.tarsos.dsp.writer.WriterProcessor;
 
 public class ChineseAccentComparison {
     public static ChineseAccentComparison cac;
+    CacpDBManager cacpDB;
 
     ArrayList<AccentContents> contentsList;
 
@@ -28,21 +36,26 @@ public class ChineseAccentComparison {
     AudioProcessor pitchProcessor;
     Thread audioThread;
 
-    private ChineseAccentComparison(){
+    Context mContext;
+
+    String tempFileName = "cacp_temp.wav";
+
+    private ChineseAccentComparison(Context context){
+        this.mContext = context;
         init();
     }
 
-    public static ChineseAccentComparison getInstance()
+    public static ChineseAccentComparison getInstance(Context context)
     {
         if(cac == null)
-            cac = new ChineseAccentComparison();
+            cac = new ChineseAccentComparison(context);
 
         return cac;
     }
 
     private void init()
     {
-        contentsList = new ArrayList<>();
+        cacpDB = CacpDBManager.getInstance(mContext);
 
         //init Audio format
         tarsosDSPAudioFormat=new TarsosDSPAudioFormat(TarsosDSPAudioFormat.Encoding.PCM_SIGNED,
@@ -55,35 +68,107 @@ public class ChineseAccentComparison {
     }
 
 
+    //Contents CRUD 관련
     public ArrayList<AccentContents> getContentsList()
     {
+        if(contentsList == null)
+            contentsList = cacpDB.getDAO().selectContents();
+
         return this.contentsList;
     }
 
-    public void saveSoundFile(String filePath, String title, String description)
-    {
+    public AccentContents findContentsById(int id){
+        for(int i=0; i<contentsList.size(); i++)
+            if(contentsList.get(i).getId() == id)
+                return contentsList.get(i);
 
+        return null;
     }
 
+    public int saveContents(AccentContents accentContents)
+    {
+        int id = cacpDB.getDAO().insertContents(accentContents);
+        accentContents.setId(id);
+        contentsList.add(accentContents);
+        return id;
+    }
+
+    public boolean deleteContents(AccentContents accentContents)
+    {
+        if(cacpDB.getDAO().deleteContents(accentContents))
+        {
+            contentsList.remove(accentContents);
+            return true;
+        }
+        else
+            return false;
+    }
+
+    //Contents 이용관련
     public void playContents(String filePath, PitchDetectionHandler pdHandler)
     {
-        initDispatcher(filePath, pdHandler);
+        initFileDispatcher(filePath, pdHandler);
 
-        audioThread = new Thread(dispatcher, "Contents Play Thread");
-        audioThread.start();
+        if(dispatcher != null)
+        {
+            audioThread = new Thread(dispatcher, "Contents Play Thread");
+            audioThread.start();
+        }
     }
 
     public void pauseContents()
+    {
+        if(!dispatcher.isStopped())
+            dispatcher.stop();
+    }
+
+    public void resumeContents()
+    {
+
+    }
+
+    public void startRecord(PitchDetectionHandler pdHandler)
+    {
+        initMicDispatcher(pdHandler);
+        audioThread = new Thread(dispatcher, "Record Thread");
+        audioThread.start();
+    }
+
+    public void stopRecord()
+    {
+        releaseDispatcher();
+    }
+
+    public void measureSimilarity(AccentContents contents)
     {
 
     }
 
     public void finishContents()
     {
-
+        releaseDispatcher();
     }
 
-    private void initDispatcher(String filePath, PitchDetectionHandler pdHandler) //Pitcher 초기화
+    private void initMicDispatcher(PitchDetectionHandler pdHandler)
+    {
+        dispatcher = AudioDispatcherFactory.fromDefaultMicrophone(22050,1024,0);
+
+        try {
+            File file = new File(Environment.getExternalStorageDirectory(), tempFileName);
+
+            RandomAccessFile randomAccessFile = new RandomAccessFile(file,"rw");
+            AudioProcessor recordProcessor = new WriterProcessor(tarsosDSPAudioFormat, randomAccessFile);
+            dispatcher.addAudioProcessor(recordProcessor);
+
+            AudioProcessor pitchProcessor = new PitchProcessor(PitchProcessor.PitchEstimationAlgorithm.FFT_YIN, 22050, 1024, pdHandler);
+            dispatcher.addAudioProcessor(pitchProcessor);
+
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void initFileDispatcher(String filePath, PitchDetectionHandler pdHandler) //Pitcher 초기화
     {
         try{
             releaseDispatcher();
@@ -103,7 +188,6 @@ public class ChineseAccentComparison {
         {
             exception.printStackTrace();
         }
-
     }
 
     private void releaseDispatcher()

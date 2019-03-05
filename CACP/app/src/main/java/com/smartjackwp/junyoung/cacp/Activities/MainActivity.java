@@ -1,7 +1,9 @@
 package com.smartjackwp.junyoung.cacp.Activities;
 
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.support.annotation.Nullable;
+import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Log;
@@ -34,7 +36,7 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        cacp = ChineseAccentComparison.getInstance();
+        cacp = ChineseAccentComparison.getInstance(this);
         contentsList = cacp.getContentsList();
 
         initUI();
@@ -60,9 +62,36 @@ public class MainActivity extends AppCompatActivity {
             public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
                 Intent intent = new Intent(MainActivity.this, PracticeAccentActivity.class);
                 AccentContents contents = (AccentContents)contentsAdapter.getItem(position);
-                //intent.putExtra(AccentContents._ID, contents.getID());
-                intent.putExtra(AccentContents.FILE_PATH, contents.getFilePath());
+                intent.putExtra(AccentContents._ID, contents.getId());
                 startActivity(intent);
+            }
+        });
+
+        contentsListView.setOnItemLongClickListener(new AdapterView.OnItemLongClickListener() {
+            @Override
+            public boolean onItemLongClick(AdapterView<?> parent, View view, final int position, long id) {
+                DialogInterface.OnClickListener dialogClickListener = new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+                        switch(which){
+                            case DialogInterface.BUTTON_POSITIVE:
+                                AccentContents contents = (AccentContents) contentsAdapter.getItem(position);
+                                if(cacp.deleteContents(contents))
+                                    contentsAdapter.notifyDataSetChanged();
+                                break;
+                            case DialogInterface.BUTTON_NEGATIVE:
+                                break;
+                        }
+                    }
+                };
+
+                AlertDialog.Builder builder = new AlertDialog.Builder(MainActivity.this);
+                builder.setMessage("정말 삭제하시겠습니까?")
+                        .setPositiveButton("삭제", dialogClickListener)
+                        .setNegativeButton("취소", dialogClickListener)
+                        .show();
+
+                return true;
             }
         });
     }
@@ -72,11 +101,6 @@ public class MainActivity extends AppCompatActivity {
         super.onActivityResult(requestCode, resultCode, data);
         Log.e(TAG, "onActivityResult 호출 - requestCode: " + requestCode + ", resultCode: " + resultCode);
 
-        String filePath = data.getStringExtra(AccentContents.FILE_PATH);
-        String title = data.getStringExtra(AccentContents.TITLE);
-        String description = data.getStringExtra(AccentContents.DESCRIPTION);
-
-        contentsList.add(new AccentContents(filePath, title, description));
         contentsAdapter.notifyDataSetChanged();
     }
 }

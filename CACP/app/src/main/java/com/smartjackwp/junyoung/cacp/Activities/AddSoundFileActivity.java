@@ -35,7 +35,7 @@ public class AddSoundFileActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_add_sound_file);
 
-        cacp = ChineseAccentComparison.getInstance();
+        cacp = ChineseAccentComparison.getInstance(this);
 
         loadFileButton = findViewById(R.id.loadFileButton);
         addFileButton = findViewById(R.id.addFileButton);
@@ -75,8 +75,12 @@ public class AddSoundFileActivity extends AppCompatActivity {
                 {
                     String title = titleEditText.getText().toString();
                     String description = descriptionEditText.getText().toString();
-                    //cacp.saveSoundFile(filePath, title, description);
-                    returnResult(filePath, title, description);
+                    int id = cacp.saveContents(new AccentContents(filePath, title, description));
+
+                    if(id > -1)
+                        returnResult(id);
+                    else
+                        Toast.makeText(AddSoundFileActivity.this, "음성 파일 추가를 실패하였습니다.", Toast.LENGTH_LONG).show();
                 }
             }
         });
@@ -106,12 +110,10 @@ public class AddSoundFileActivity extends AppCompatActivity {
         return true;
     }
 
-    private void returnResult(String filePath, String title, String description)
+    private void returnResult(int id)
     {
         Intent intent = new Intent();
-        intent.putExtra(AccentContents.FILE_PATH, filePath);
-        intent.putExtra(AccentContents.TITLE, title);
-        intent.putExtra(AccentContents.DESCRIPTION, description);
+        intent.putExtra(AccentContents._ID, id);
 
         setResult(RESULT_OK, intent);
         finish();

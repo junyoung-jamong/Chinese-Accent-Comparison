@@ -6,9 +6,11 @@ import android.graphics.Point;
 import android.icu.text.AlphabeticIndex;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.ImageButton;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import com.jjoe64.graphview.GraphView;
@@ -17,6 +19,8 @@ import com.jjoe64.graphview.series.LineGraphSeries;
 import com.smartjackwp.junyoung.cacp.ChineseAccentComparison;
 import com.smartjackwp.junyoung.cacp.Entity.AccentContents;
 import com.smartjackwp.junyoung.cacp.R;
+
+import java.util.ArrayList;
 
 import be.tarsos.dsp.AudioEvent;
 import be.tarsos.dsp.pitch.PitchDetectionHandler;
@@ -28,6 +32,8 @@ public class PracticeAccentActivity extends AppCompatActivity {
     ImageButton recordButton;
     ImageButton closeButton;
 
+    TextView titleTextView;
+
     GraphView contentsPitchGraph;
     private LineGraphSeries<DataPoint> contentsPitchSeries;
     private double graphLastXValue = 1d;
@@ -35,19 +41,24 @@ public class PracticeAccentActivity extends AppCompatActivity {
 
     ChineseAccentComparison cacp;
 
-    String filePath;
+    AccentContents contents;
+    int contents_id;
+
+    ArrayList<Float> playedPitchList;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_practice_accent);
 
-        cacp = ChineseAccentComparison.getInstance();
+        cacp = ChineseAccentComparison.getInstance(this);
         Intent intent = getIntent();
-        this.filePath = intent.getStringExtra(AccentContents.FILE_PATH);
 
-        initUI();
+        contents_id = intent.getIntExtra(AccentContents._ID, -1);
+        contents = cacp.findContentsById(contents_id);
 
+        if(contents != null)
+            initUI();
     }
 
     private void initUI()
@@ -57,7 +68,11 @@ public class PracticeAccentActivity extends AppCompatActivity {
         recordButton = findViewById(R.id.recordButton);
         closeButton = findViewById(R.id.closeButton);
 
+        titleTextView = findViewById(R.id.titleTextView);
+
         contentsPitchGraph = findViewById(R.id.contentsPitchGraph);
+
+        titleTextView.setText(contents.getTitle());
 
         contentsPitchSeries = new LineGraphSeries<>();
         contentsPitchSeries.setColor(Color.rgb(0xF1,0x70,0x68));
@@ -66,6 +81,11 @@ public class PracticeAccentActivity extends AppCompatActivity {
         contentsPitchGraph.addSeries(contentsPitchSeries);
         contentsPitchGraph.getGridLabelRenderer().setHorizontalLabelsVisible(false);
         contentsPitchGraph.getGridLabelRenderer().setVerticalLabelsVisible(false);
+        contentsPitchGraph.getViewport().setXAxisBoundsManual(true);
+        contentsPitchGraph.getViewport().setMinX(0);
+        contentsPitchGraph.getViewport().setMaxX(100);
+        contentsPitchGraph.getViewport().setMinY(-1);
+        contentsPitchGraph.getViewport().setMaxY(300);
 
         pdHandler = new PitchDetectionHandler() {
             @Override
@@ -83,9 +103,15 @@ public class PracticeAccentActivity extends AppCompatActivity {
         playButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                cacp.playContents(filePath, pdHandler);
-                playButton.setVisibility(View.INVISIBLE);
-                pauseButton.setVisibility(View.VISIBLE);
+                if (contents != null)
+                {
+                    cacp.playContents(contents.getFilePath(), pdHandler);
+
+                    playedPitchList = new ArrayList<>();
+
+                    playButton.setVisibility(View.INVISIBLE);
+                    pauseButton.setVisibility(View.VISIBLE);
+                }
             }
         });
 
@@ -101,24 +127,37 @@ public class PracticeAccentActivity extends AppCompatActivity {
         recordButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                startActivity(new Intent(PracticeAccentActivity.this, RecordActivity.class));
+                if(playedPitchList.size() > 0)
+                {
+                    contents.setPlayedPitchList(playedPitchList);
+                    Intent intent = new Intent(PracticeAccentActivity.this, RecordActivity.class);
+                    intent.putExtra(AccentContents._ID, contents.getId());
+                    startActivity(intent);
+                }
             }
         });
 
         closeButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                cacp.finishContents();
                 finish();
             }
         });
     }
 
-    public void processPitch(float pitchInHz){
+    private void processPitch(float pitchInHz){
         if (pitchInHz < 0)
-            pitchInHz = 20;
+            pitchInHz = 0;
+
+        playedPitchList.add(pitchInHz);
 
         graphLastXValue += 1d;
         contentsPitchSeries.appendData(new DataPoint(graphLastXValue, pitchInHz), true, 300);
+    }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+        cacp.finishContents();
     }
 }

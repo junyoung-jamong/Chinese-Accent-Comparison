@@ -1,9 +1,45 @@
 <?xml version="1.0" encoding="utf-8"?>
-<android.support.constraint.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    tools:context=".Activities.RecordActivity">
+    android:background="#cc000000"
+    android:orientation="vertical">
 
-</android.support.constraint.ConstraintLayout>
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="320dp">
+
+        <com.jjoe64.graphview.GraphView
+            android:id="@+id/recordingGraphView"
+            android:layout_width="match_parent"
+            android:layout_height="200dp"
+            android:layout_gravity="bottom|center_horizontal"
+            android:layout_marginLeft="32dp"
+            android:layout_marginRight="32dp"
+            android:background="#32363b" />
+
+    </FrameLayout>
+
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
+
+        <ImageButton
+            android:id="@+id/endRecordButton"
+            android:layout_width="64dp"
+            android:layout_height="64dp"
+            android:layout_gravity="center_horizontal"
+            android:layout_marginTop="18dp"
+            android:visibility="invisible"
+            app:srcCompat="@android:drawable/alert_light_frame" />
+
+        <ImageButton
+            android:id="@+id/startRecordButton"
+            android:layout_width="64dp"
+            android:layout_height="69dp"
+            android:layout_gravity="center_horizontal"
+            android:layout_marginTop="18dp"
+            app:srcCompat="@android:drawable/ic_btn_speak_now" />
+    </FrameLayout>
+</LinearLayout>
