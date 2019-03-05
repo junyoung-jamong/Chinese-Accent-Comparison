@@ -4,6 +4,7 @@ import android.content.Intent;
 import android.graphics.Color;
 import android.graphics.Point;
 import android.icu.text.AlphabeticIndex;
+import android.os.Handler;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Log;
@@ -22,19 +23,22 @@ import com.smartjackwp.junyoung.cacp.R;
 
 import java.util.ArrayList;
 
+import Interfaces.OnMeasuredSimilarityListener;
 import be.tarsos.dsp.AudioEvent;
 import be.tarsos.dsp.pitch.PitchDetectionHandler;
 import be.tarsos.dsp.pitch.PitchDetectionResult;
 
-public class PracticeAccentActivity extends AppCompatActivity {
+public class PracticeAccentActivity extends AppCompatActivity implements OnMeasuredSimilarityListener {
     ImageButton playButton;
     ImageButton pauseButton;
     ImageButton recordButton;
     ImageButton closeButton;
 
     TextView titleTextView;
+    TextView simTextView;
 
     GraphView contentsPitchGraph;
+    GraphView similarityGraph;
     private LineGraphSeries<DataPoint> contentsPitchSeries;
     private double graphLastXValue = 1d;
     PitchDetectionHandler pdHandler;
@@ -58,7 +62,34 @@ public class PracticeAccentActivity extends AppCompatActivity {
         contents = cacp.findContentsById(contents_id);
 
         if(contents != null)
+        {
             initUI();
+            cacp.setOnMeasuredSimilarityListener(this);
+        }
+    }
+
+    @Override
+    public void onMeasured(double sim, ArrayList<Float> playedPitch, ArrayList<Float> recordedPitch) {
+        simTextView.setVisibility(View.VISIBLE);
+        simTextView.setText("유사도 점수: " + Math.round(sim) + "%");
+
+        LineGraphSeries<DataPoint> playedPitchSeries = new LineGraphSeries<>();
+        LineGraphSeries<DataPoint> recordedPitchSeries = new LineGraphSeries<>();
+
+        for(int i=0; i<playedPitch.size(); i++)
+            playedPitchSeries.appendData(new DataPoint(i+1, playedPitch.get(i)), true, 300);
+
+        for(int i=0; i<recordedPitch.size(); i++)
+            recordedPitchSeries.appendData(new DataPoint(i+1, recordedPitch.get(i)), true, 300);
+
+        playedPitchSeries.setColor(Color.rgb(0xF1,0x70,0x68));
+
+        similarityGraph.getViewport().setMaxX(Math.max(playedPitch.size(), recordedPitch.size()));
+        similarityGraph.removeAllSeries();
+        similarityGraph.addSeries(playedPitchSeries);
+        similarityGraph.addSeries(recordedPitchSeries);
+        similarityGraph.setVisibility(View.VISIBLE);
+
     }
 
     private void initUI()
@@ -69,10 +100,19 @@ public class PracticeAccentActivity extends AppCompatActivity {
         closeButton = findViewById(R.id.closeButton);
 
         titleTextView = findViewById(R.id.titleTextView);
+        simTextView = findViewById(R.id.simTextView);
 
         contentsPitchGraph = findViewById(R.id.contentsPitchGraph);
+        similarityGraph = findViewById(R.id.similarityGraph);
 
         titleTextView.setText(contents.getTitle());
+
+        similarityGraph.getViewport().setXAxisBoundsManual(true);
+        similarityGraph.getViewport().setMinX(0);
+        similarityGraph.getViewport().setMinY(0);
+        similarityGraph.getViewport().setMaxY(1);
+        similarityGraph.getGridLabelRenderer().setHorizontalLabelsVisible(false);
+        similarityGraph.getGridLabelRenderer().setVerticalLabelsVisible(false);
 
         contentsPitchSeries = new LineGraphSeries<>();
         contentsPitchSeries.setColor(Color.rgb(0xF1,0x70,0x68));

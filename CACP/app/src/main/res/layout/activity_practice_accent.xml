@@ -64,7 +64,25 @@
         android:layout_height="match_parent"
         android:layout_weight="1">
 
+        <com.jjoe64.graphview.GraphView
+            android:id="@+id/similarityGraph"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:layout_margin="16dp"
+            android:visibility="invisible" />
+
     </FrameLayout>
+
+    <TextView
+        android:id="@+id/simTextView"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center"
+        android:text="유사도 점수:"
+        android:textColor="@android:color/holo_blue_dark"
+        android:textSize="30sp"
+        android:textStyle="italic"
+        android:visibility="invisible" />
 
     <LinearLayout
         android:layout_width="match_parent"

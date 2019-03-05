@@ -2,9 +2,14 @@ package com.smartjackwp.junyoung.cacp;
 
 import android.content.Context;
 import android.os.Environment;
+import android.os.Handler;
+import android.util.Log;
 
 import com.smartjackwp.junyoung.cacp.Database.CacpDBManager;
 import com.smartjackwp.junyoung.cacp.Entity.AccentContents;
+import com.smartjackwp.junyoung.cacp.Utils.GridMatrix;
+import com.smartjackwp.junyoung.cacp.Utils.Similarity;
+import com.smartjackwp.junyoung.cacp.Utils.Tools;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -13,6 +18,7 @@ import java.io.RandomAccessFile;
 import java.nio.ByteOrder;
 import java.util.ArrayList;
 
+import Interfaces.OnMeasuredSimilarityListener;
 import be.tarsos.dsp.AudioDispatcher;
 import be.tarsos.dsp.AudioEvent;
 import be.tarsos.dsp.AudioProcessor;
@@ -40,6 +46,13 @@ public class ChineseAccentComparison {
 
     String tempFileName = "cacp_temp.wav";
 
+    private final int GRID_M = 5;
+    private final int GRID_N = 10;
+
+    OnMeasuredSimilarityListener onMeasuredSimilarityListener;
+
+    Handler handler;
+
     private ChineseAccentComparison(Context context){
         this.mContext = context;
         init();
@@ -56,6 +69,7 @@ public class ChineseAccentComparison {
     private void init()
     {
         cacpDB = CacpDBManager.getInstance(mContext);
+        handler = new Handler();
 
         //init Audio format
         tarsosDSPAudioFormat=new TarsosDSPAudioFormat(TarsosDSPAudioFormat.Encoding.PCM_SIGNED,
@@ -141,7 +155,40 @@ public class ChineseAccentComparison {
 
     public void measureSimilarity(AccentContents contents)
     {
+        final ArrayList<Float> playedPitchList = contents.getPlayedPitchList();
+        final ArrayList<Float> recordedPitchList = contents.getRecordedPitchList();
+        if(playedPitchList != null && recordedPitchList != null)
+        {
+            Thread thread = new Thread(new Runnable() {
+                @Override
+                public void run() {
+                    final ArrayList<Float> normPlayedPitchList = Tools.featureScaling(playedPitchList);
+                    final ArrayList<Float> normRecordedPitchList = Tools.featureScaling(recordedPitchList);
 
+                    GridMatrix playedGM = new GridMatrix(GRID_M, GRID_N, normPlayedPitchList);
+                    GridMatrix recordedGM = new GridMatrix(GRID_M, GRID_N, normRecordedPitchList);
+
+                    //double dist1 = Similarity.GMED(playedGM, recordedGM);
+                    //double dist2 = Similarity.GMDTW(playedGM, recordedGM);
+                    //double dist = (dist1+dist2)/2;
+                    //dist = dist/normPlayedPitchList.size();
+                    //final double sim = 100/(1+dist);
+
+                    final double sim= 100*Similarity.JACCARD_SIM(playedGM, recordedGM);
+
+                    if(onMeasuredSimilarityListener != null)
+                    {
+                        handler.post(new Runnable() {
+                            @Override
+                            public void run() {
+                                onMeasuredSimilarityListener.onMeasured(sim, normPlayedPitchList, normRecordedPitchList);
+                            }
+                        });
+                    }
+                }
+            });
+            thread.run();
+        }
     }
 
     public void finishContents()
@@ -198,6 +245,10 @@ public class ChineseAccentComparison {
                 dispatcher.stop();
             dispatcher = null;
         }
+    }
+
+    public void setOnMeasuredSimilarityListener(OnMeasuredSimilarityListener listener){
+        this.onMeasuredSimilarityListener = listener;
     }
 
 }
