@@ -1,6 +1,7 @@
 package com.smartjackwp.junyoung.cacp;
 
 import android.content.Context;
+import android.media.AudioManager;
 import android.os.Environment;
 import android.os.Handler;
 import android.util.Log;
@@ -25,6 +26,7 @@ import be.tarsos.dsp.AudioProcessor;
 import be.tarsos.dsp.io.TarsosDSPAudioFormat;
 import be.tarsos.dsp.io.UniversalAudioInputStream;
 import be.tarsos.dsp.io.android.AndroidAudioPlayer;
+import be.tarsos.dsp.io.android.AndroidFFMPEGLocator;
 import be.tarsos.dsp.io.android.AudioDispatcherFactory;
 import be.tarsos.dsp.pitch.PitchDetectionHandler;
 import be.tarsos.dsp.pitch.PitchDetectionResult;
@@ -222,14 +224,17 @@ public class ChineseAccentComparison {
 
             File file = new File(filePath);
             FileInputStream fileInputStream = new FileInputStream(file);
+            //dispatcher = new AudioDispatcher(new UniversalAudioInputStream(fileInputStream, tarsosDSPAudioFormat), 1024, 0);
+            Log.e("filePath :", filePath);
+            new AndroidFFMPEGLocator(mContext);
+            dispatcher = AudioDispatcherFactory.fromPipe(filePath, 22050, 1024, 0);
 
-            dispatcher = new AudioDispatcher(new UniversalAudioInputStream(fileInputStream, tarsosDSPAudioFormat), 1024, 0);
-
-            AudioProcessor playerProcessor = new AndroidAudioPlayer(tarsosDSPAudioFormat, 2048, 0);
+            AudioProcessor playerProcessor = new AndroidAudioPlayer(tarsosDSPAudioFormat, 5000, AudioManager.STREAM_MUSIC);
             dispatcher.addAudioProcessor(playerProcessor);
 
             pitchProcessor = new PitchProcessor(PitchProcessor.PitchEstimationAlgorithm.FFT_YIN, 22050, 1024, pdHandler);
             dispatcher.addAudioProcessor(pitchProcessor);
+
 
         }catch(Exception exception)
         {
