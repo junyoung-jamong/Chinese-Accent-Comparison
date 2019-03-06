@@ -7,6 +7,7 @@ import android.widget.BaseAdapter;
 
 import com.smartjackwp.junyoung.cacp.CustomizedUI.ContentsItemView;
 import com.smartjackwp.junyoung.cacp.Entity.AccentContents;
+import com.smartjackwp.junyoung.cacp.Utils.Tools;
 
 import java.util.ArrayList;
 
@@ -53,7 +54,10 @@ public class ContentsAdapter extends BaseAdapter {
         AccentContents contents = (AccentContents)getItem(position);
         view.setTitle(contents.getTitle());
         view.setDescription(contents.getDescription());
-        //view.setPlayTime();
+
+        long duration = (long)contents.getDuration();
+
+        view.setPlayTime(Tools.getTimeFormat(duration));
 
         return view;
     }

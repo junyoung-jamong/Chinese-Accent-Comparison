@@ -11,6 +11,7 @@ import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.ImageButton;
+import android.widget.SeekBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -20,6 +21,7 @@ import com.jjoe64.graphview.series.LineGraphSeries;
 import com.smartjackwp.junyoung.cacp.ChineseAccentComparison;
 import com.smartjackwp.junyoung.cacp.Entity.AccentContents;
 import com.smartjackwp.junyoung.cacp.R;
+import com.smartjackwp.junyoung.cacp.Utils.Tools;
 
 import java.util.ArrayList;
 
@@ -36,6 +38,10 @@ public class PracticeAccentActivity extends AppCompatActivity implements OnMeasu
 
     TextView titleTextView;
     TextView simTextView;
+    TextView durationTextView;
+    TextView runningTimeTextView;
+
+    SeekBar playSeekBar;
 
     GraphView contentsPitchGraph;
     GraphView similarityGraph;
@@ -47,6 +53,10 @@ public class PracticeAccentActivity extends AppCompatActivity implements OnMeasu
 
     AccentContents contents;
     int contents_id;
+    int duration;
+    double currentTimeOffset;
+
+    boolean isPlaying = false;
 
     ArrayList<Float> playedPitchList;
 
@@ -101,11 +111,18 @@ public class PracticeAccentActivity extends AppCompatActivity implements OnMeasu
 
         titleTextView = findViewById(R.id.titleTextView);
         simTextView = findViewById(R.id.simTextView);
+        durationTextView = findViewById(R.id.durationTextView);
+        runningTimeTextView = findViewById(R.id.runningTimeTextView);
+
+        playSeekBar = findViewById(R.id.playSeekBar);
+        this.duration = (int)(contents.getDuration()*1000);
+        playSeekBar.setMax(duration);
 
         contentsPitchGraph = findViewById(R.id.contentsPitchGraph);
         similarityGraph = findViewById(R.id.similarityGraph);
 
         titleTextView.setText(contents.getTitle());
+        durationTextView.setText(Tools.getTimeFormat((long)contents.getDuration()));
 
         similarityGraph.getViewport().setXAxisBoundsManual(true);
         similarityGraph.getViewport().setMinX(0);
@@ -129,12 +146,16 @@ public class PracticeAccentActivity extends AppCompatActivity implements OnMeasu
 
         pdHandler = new PitchDetectionHandler() {
             @Override
-            public void handlePitch(PitchDetectionResult res, AudioEvent e){
+            public void handlePitch(PitchDetectionResult res, final AudioEvent e){
+                //Log.e("HandlePitch", "EndTimeStamp : " + e.getEndTimeStamp() + " | FrameLength :" + e.getFrameLength()
+                //+ " | Progress:" + e.getProgress() + " | TimeStamp: " + e.getTimeStamp());
+
+                final int timeStamp = (int)(e.getTimeStamp() * 1000);
                 final float pitchInHz = res.getPitch();
                 runOnUiThread(new Runnable() {
                     @Override
                     public void run() {
-                        processPitch(pitchInHz);
+                        processPitch(pitchInHz, timeStamp);
                     }
                 });
             }
@@ -145,12 +166,13 @@ public class PracticeAccentActivity extends AppCompatActivity implements OnMeasu
             public void onClick(View v) {
                 if (contents != null)
                 {
-                    cacp.playContents(contents.getFilePath(), pdHandler);
-
-                    playedPitchList = new ArrayList<>();
-
-                    playButton.setVisibility(View.INVISIBLE);
-                    pauseButton.setVisibility(View.VISIBLE);
+                    play();
+                    /*
+                    if(isPlaying)
+                        resume();
+                    else
+                        play();
+                    */
                 }
             }
         });
@@ -158,9 +180,7 @@ public class PracticeAccentActivity extends AppCompatActivity implements OnMeasu
         pauseButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                cacp.pauseContents();
-                playButton.setVisibility(View.VISIBLE);
-                pauseButton.setVisibility(View.INVISIBLE);
+                pause();
             }
         });
 
@@ -169,6 +189,8 @@ public class PracticeAccentActivity extends AppCompatActivity implements OnMeasu
             public void onClick(View v) {
                 if(playedPitchList.size() > 0)
                 {
+                    pause();
+
                     contents.setPlayedPitchList(playedPitchList);
                     Intent intent = new Intent(PracticeAccentActivity.this, RecordActivity.class);
                     intent.putExtra(AccentContents._ID, contents.getId());
@@ -185,7 +207,7 @@ public class PracticeAccentActivity extends AppCompatActivity implements OnMeasu
         });
     }
 
-    private void processPitch(float pitchInHz){
+    private void processPitch(float pitchInHz, int timeStamp){
         if (pitchInHz < 0)
             pitchInHz = 0;
 
@@ -193,11 +215,54 @@ public class PracticeAccentActivity extends AppCompatActivity implements OnMeasu
 
         graphLastXValue += 1d;
         contentsPitchSeries.appendData(new DataPoint(graphLastXValue, pitchInHz), true, 300);
+
+        playSeekBar.setProgress(timeStamp);
+        runningTimeTextView.setText(Tools.getTimeFormat(timeStamp/1000));
+
+        if(duration-10 <= timeStamp)
+            stop();
+
+    }
+
+    private void play()
+    {
+        cacp.playContents(contents.getFilePath(), pdHandler);
+        playedPitchList = new ArrayList<>();
+        isPlaying = true;
+        playButton.setVisibility(View.INVISIBLE);
+        pauseButton.setVisibility(View.VISIBLE);
+    }
+
+    private void pause()
+    {
+        cacp.pauseContents();
+        playButton.setVisibility(View.VISIBLE);
+        pauseButton.setVisibility(View.INVISIBLE);
+    }
+
+    private void resume()
+    {
+        cacp.resumeContents(contents.getFilePath(), pdHandler, currentTimeOffset);
+        playButton.setVisibility(View.INVISIBLE);
+        pauseButton.setVisibility(View.VISIBLE);
+    }
+
+    private void stop()
+    {
+        cacp.stopContents();
+        isPlaying =false;
+        playButton.setVisibility(View.VISIBLE);
+        pauseButton.setVisibility(View.INVISIBLE);
     }
 
     @Override
     protected void onStop() {
         super.onStop();
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
         cacp.finishContents();
     }
 }

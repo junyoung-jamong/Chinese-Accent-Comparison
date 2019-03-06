@@ -73,7 +73,7 @@ public class RecordActivity extends AppCompatActivity {
 
         playedPitchList = contents.getPlayedPitchList();
         playedPitchListSize = playedPitchList.size();
-        maximumSize = playedPitchListSize+10;
+        maximumSize = playedPitchListSize+5;
         for(int i=0; i<playedPitchListSize; i++)
             playedGraphSeries.appendData(new DataPoint(i+1, playedPitchList.get(i)), false, 300);
 

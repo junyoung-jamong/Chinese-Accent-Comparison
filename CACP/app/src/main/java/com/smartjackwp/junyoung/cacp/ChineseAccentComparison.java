@@ -4,16 +4,14 @@ import android.content.Context;
 import android.media.AudioManager;
 import android.os.Environment;
 import android.os.Handler;
-import android.util.Log;
 
 import com.smartjackwp.junyoung.cacp.Database.CacpDBManager;
 import com.smartjackwp.junyoung.cacp.Entity.AccentContents;
 import com.smartjackwp.junyoung.cacp.Utils.GridMatrix;
 import com.smartjackwp.junyoung.cacp.Utils.Similarity;
-import com.smartjackwp.junyoung.cacp.Utils.Tools;
+import com.smartjackwp.junyoung.cacp.Utils.Normalization;
 
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.nio.ByteOrder;
@@ -21,15 +19,12 @@ import java.util.ArrayList;
 
 import Interfaces.OnMeasuredSimilarityListener;
 import be.tarsos.dsp.AudioDispatcher;
-import be.tarsos.dsp.AudioEvent;
 import be.tarsos.dsp.AudioProcessor;
 import be.tarsos.dsp.io.TarsosDSPAudioFormat;
-import be.tarsos.dsp.io.UniversalAudioInputStream;
 import be.tarsos.dsp.io.android.AndroidAudioPlayer;
 import be.tarsos.dsp.io.android.AndroidFFMPEGLocator;
 import be.tarsos.dsp.io.android.AudioDispatcherFactory;
 import be.tarsos.dsp.pitch.PitchDetectionHandler;
-import be.tarsos.dsp.pitch.PitchDetectionResult;
 import be.tarsos.dsp.pitch.PitchProcessor;
 import be.tarsos.dsp.writer.WriterProcessor;
 
@@ -41,6 +36,8 @@ public class ChineseAccentComparison {
 
     TarsosDSPAudioFormat tarsosDSPAudioFormat;
     AudioDispatcher dispatcher;
+    AudioProcessor playerProcessor;
+    AudioProcessor recordProcessor;
     AudioProcessor pitchProcessor;
     Thread audioThread;
 
@@ -138,9 +135,21 @@ public class ChineseAccentComparison {
             dispatcher.stop();
     }
 
-    public void resumeContents()
+    public void stopContents()
     {
+        if(!dispatcher.isStopped())
+            dispatcher.stop();
+    }
 
+    public void resumeContents(String filePath, PitchDetectionHandler pdHandler, double startTimeOffset)
+    {
+        initFileDispatcher(filePath, pdHandler, startTimeOffset);
+
+        if(dispatcher != null)
+        {
+            audioThread = new Thread(dispatcher, "Contents Play Thread");
+            audioThread.start();
+        }
     }
 
     public void startRecord(PitchDetectionHandler pdHandler)
@@ -164,8 +173,8 @@ public class ChineseAccentComparison {
             Thread thread = new Thread(new Runnable() {
                 @Override
                 public void run() {
-                    final ArrayList<Float> normPlayedPitchList = Tools.featureScaling(playedPitchList);
-                    final ArrayList<Float> normRecordedPitchList = Tools.featureScaling(recordedPitchList);
+                    final ArrayList<Float> normPlayedPitchList = Normalization.featureScaling(playedPitchList);
+                    final ArrayList<Float> normRecordedPitchList = Normalization.featureScaling(recordedPitchList);
 
                     GridMatrix playedGM = new GridMatrix(GRID_M, GRID_N, normPlayedPitchList);
                     GridMatrix recordedGM = new GridMatrix(GRID_M, GRID_N, normRecordedPitchList);
@@ -176,14 +185,20 @@ public class ChineseAccentComparison {
                     //dist = dist/normPlayedPitchList.size();
                     //final double sim = 100/(1+dist);
 
-                    final double sim= 100*Similarity.JACCARD_SIM(playedGM, recordedGM);
+                    double sim= 100*Similarity.JACCARD_SIM(playedGM, recordedGM);
+
+                    if(sim > 70)
+                        sim += 10*(sim/100);
+                    sim = Math.min(sim, 100);
+
+                    final double score = sim;
 
                     if(onMeasuredSimilarityListener != null)
                     {
                         handler.post(new Runnable() {
                             @Override
                             public void run() {
-                                onMeasuredSimilarityListener.onMeasured(sim, normPlayedPitchList, normRecordedPitchList);
+                                onMeasuredSimilarityListener.onMeasured(score, normPlayedPitchList, normRecordedPitchList);
                             }
                         });
                     }
@@ -198,6 +213,10 @@ public class ChineseAccentComparison {
         releaseDispatcher();
     }
 
+    public void setOnMeasuredSimilarityListener(OnMeasuredSimilarityListener listener){
+        this.onMeasuredSimilarityListener = listener;
+    }
+
     private void initMicDispatcher(PitchDetectionHandler pdHandler)
     {
         dispatcher = AudioDispatcherFactory.fromDefaultMicrophone(22050,1024,0);
@@ -206,10 +225,10 @@ public class ChineseAccentComparison {
             File file = new File(Environment.getExternalStorageDirectory(), tempFileName);
 
             RandomAccessFile randomAccessFile = new RandomAccessFile(file,"rw");
-            AudioProcessor recordProcessor = new WriterProcessor(tarsosDSPAudioFormat, randomAccessFile);
+            recordProcessor = new WriterProcessor(tarsosDSPAudioFormat, randomAccessFile);
             dispatcher.addAudioProcessor(recordProcessor);
 
-            AudioProcessor pitchProcessor = new PitchProcessor(PitchProcessor.PitchEstimationAlgorithm.FFT_YIN, 22050, 1024, pdHandler);
+            pitchProcessor = new PitchProcessor(PitchProcessor.PitchEstimationAlgorithm.FFT_YIN, 22050, 1024, pdHandler);
             dispatcher.addAudioProcessor(pitchProcessor);
 
         } catch (IOException e) {
@@ -222,14 +241,39 @@ public class ChineseAccentComparison {
         try{
             releaseDispatcher();
 
-            File file = new File(filePath);
-            FileInputStream fileInputStream = new FileInputStream(file);
+            //File file = new File(filePath);
+            //FileInputStream fileInputStream = new FileInputStream(file);
             //dispatcher = new AudioDispatcher(new UniversalAudioInputStream(fileInputStream, tarsosDSPAudioFormat), 1024, 0);
-            Log.e("filePath :", filePath);
+
             new AndroidFFMPEGLocator(mContext);
             dispatcher = AudioDispatcherFactory.fromPipe(filePath, 22050, 1024, 0);
 
-            AudioProcessor playerProcessor = new AndroidAudioPlayer(tarsosDSPAudioFormat, 5000, AudioManager.STREAM_MUSIC);
+            playerProcessor = new AndroidAudioPlayer(tarsosDSPAudioFormat, 5000, AudioManager.STREAM_MUSIC);
+            dispatcher.addAudioProcessor(playerProcessor);
+
+            pitchProcessor = new PitchProcessor(PitchProcessor.PitchEstimationAlgorithm.FFT_YIN, 22050, 1024, pdHandler);
+            dispatcher.addAudioProcessor(pitchProcessor);
+
+
+        }catch(Exception exception)
+        {
+            exception.printStackTrace();
+        }
+    }
+
+    private void initFileDispatcher(String filePath, PitchDetectionHandler pdHandler, double startTimeOffset) //Pitcher 초기화
+    {
+        try{
+            releaseDispatcher();
+
+            //File file = new File(filePath);
+            //FileInputStream fileInputStream = new FileInputStream(file);
+            //dispatcher = new AudioDispatcher(new UniversalAudioInputStream(fileInputStream, tarsosDSPAudioFormat), 1024, 0);
+
+            new AndroidFFMPEGLocator(mContext);
+            dispatcher = AudioDispatcherFactory.fromPipe(filePath, 22050, 1024, 0);
+
+            playerProcessor = new AndroidAudioPlayer(tarsosDSPAudioFormat, 5000, AudioManager.STREAM_MUSIC);
             dispatcher.addAudioProcessor(playerProcessor);
 
             pitchProcessor = new PitchProcessor(PitchProcessor.PitchEstimationAlgorithm.FFT_YIN, 22050, 1024, pdHandler);
@@ -251,9 +295,4 @@ public class ChineseAccentComparison {
             dispatcher = null;
         }
     }
-
-    public void setOnMeasuredSimilarityListener(OnMeasuredSimilarityListener listener){
-        this.onMeasuredSimilarityListener = listener;
-    }
-
 }

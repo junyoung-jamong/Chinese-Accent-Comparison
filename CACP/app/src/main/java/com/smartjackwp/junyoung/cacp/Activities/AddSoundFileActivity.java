@@ -30,6 +30,8 @@ public class AddSoundFileActivity extends AppCompatActivity {
 
     ChineseAccentComparison cacp;
 
+    final String[] formats = {".mp3", ".wav", ".flac", ".wma", ".ogg"};
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -47,17 +49,15 @@ public class AddSoundFileActivity extends AppCompatActivity {
         fileDialog = new FileDialog(AddSoundFileActivity.this, mPath);
         fileDialog.addFileListener(new FileDialog.FileSelectedListener() {
             public void fileSelected(File file) {
-                fileNameTextView.setText(file.toString());
-                filePath = file.toString();
+                if(checkFormat(file.toString()))
+                {
+                    fileNameTextView.setText(file.toString());
+                    filePath = file.toString();
+                }
+                else
+                    Toast.makeText(AddSoundFileActivity.this, "유효한 파일이 아닙니다.", Toast.LENGTH_LONG).show();
             }
         });
-
-        //fileDialog.addDirectoryListener(new FileDialog.DirectorySelectedListener() {
-        //  public void directorySelected(File directory) {
-        //      Log.d(getClass().getName(), "selected dir " + directory.toString());
-        //  }
-        //});
-        //fileDialog.setSelectDirectoryOption(false);
 
         //파일 버튼(파일 찾기) 클릭 시
         loadFileButton.setOnClickListener(new View.OnClickListener() {
@@ -86,6 +86,7 @@ public class AddSoundFileActivity extends AppCompatActivity {
         });
     }
 
+    //컨텐츠 등록 폼의 유효성 검사
     private boolean checkValidation()
     {
         String title = titleEditText.getText().toString();
@@ -108,6 +109,15 @@ public class AddSoundFileActivity extends AppCompatActivity {
         }
 
         return true;
+    }
+
+    //선택 오디오 파일 포멧 검사
+    private boolean checkFormat(String fileName)
+    {
+        for(String format: formats)
+            if (fileName.endsWith(format))
+                return true;
+        return false;
     }
 
     private void returnResult(int id)

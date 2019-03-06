@@ -1,33 +1,36 @@
 package com.smartjackwp.junyoung.cacp.Utils;
 
-import java.util.ArrayList;
-
 public class Tools {
-    public static ArrayList<Float> featureScaling(ArrayList<Float> ts)
+    public static String getTimeFormat(long time)
     {
-        ArrayList<Float> normTS = new ArrayList<>();
+        return convertFormat(time);
+    }
 
-        float max = Float.MIN_VALUE;
-        float min = Float.MAX_VALUE;
+    public static String getTimeFormat(double time)
+    {
+        time = (long)time;
+        return convertFormat(time);
+    }
 
-        for(int j=0; j<ts.size(); j++)
-        {
-            float v = ts.get(j);
-            if (max < v)
-                max = v;
-            if (min > v)
-                min = v;
-        }
+    private static String convertFormat(double time)
+    {
+        String timeFormat = "";
 
-        float range = max-min;
-        for(int j=0; j<ts.size(); j++)
-        {
-            float v = ts.get(j);
-            //double normalizedX = Math.round(((x-min)/range)*100)/100.0;
-            float normalizedV = (v-min)/range;
-            normTS.add(normalizedV);
-        }
+        int minutes = (int)(time/60);
+        int seconds = (int)(time%60);
 
-        return normTS;
+        /*
+        if(minutes < 10)
+            timeFormat += "0" + minutes + ":";
+        else
+        */
+        timeFormat += minutes + ":";
+
+        if(seconds < 10)
+            timeFormat += "0" + seconds;
+        else
+            timeFormat += seconds;
+
+        return timeFormat;
     }
 }
