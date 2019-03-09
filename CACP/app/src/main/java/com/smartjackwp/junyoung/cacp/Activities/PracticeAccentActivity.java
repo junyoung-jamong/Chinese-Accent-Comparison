@@ -1,15 +1,16 @@
 package com.smartjackwp.junyoung.cacp.Activities;
 
+import android.app.Activity;
+import android.content.Context;
 import android.content.Intent;
+import android.graphics.Bitmap;
 import android.graphics.Color;
-import android.graphics.Point;
-import android.icu.text.AlphabeticIndex;
-import android.os.Handler;
+import android.net.Uri;
+import android.os.Build;
+import android.os.Environment;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
-import android.util.Log;
 import android.view.View;
-import android.widget.Button;
 import android.widget.ImageButton;
 import android.widget.SeekBar;
 import android.widget.TextView;
@@ -23,9 +24,13 @@ import com.smartjackwp.junyoung.cacp.Entity.AccentContents;
 import com.smartjackwp.junyoung.cacp.R;
 import com.smartjackwp.junyoung.cacp.Utils.Tools;
 
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.OutputStream;
 import java.util.ArrayList;
 
-import Interfaces.OnMeasuredSimilarityListener;
+import com.smartjackwp.junyoung.cacp.Interfaces.OnMeasuredSimilarityListener;
 import be.tarsos.dsp.AudioEvent;
 import be.tarsos.dsp.pitch.PitchDetectionHandler;
 import be.tarsos.dsp.pitch.PitchDetectionResult;
@@ -35,6 +40,7 @@ public class PracticeAccentActivity extends AppCompatActivity implements OnMeasu
     ImageButton pauseButton;
     ImageButton recordButton;
     ImageButton closeButton;
+    ImageButton captureButton;
 
     TextView titleTextView;
     TextView simTextView;
@@ -55,10 +61,14 @@ public class PracticeAccentActivity extends AppCompatActivity implements OnMeasu
     int contents_id;
     int duration;
     double currentTimeOffset;
+    double lastPausedTimeOffset;
 
     boolean isPlaying = false;
+    boolean isPaused = false;
 
     ArrayList<Float> playedPitchList;
+
+    private static final String CAPTURE_PATH = "/CACP_CAPTURE";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -108,6 +118,7 @@ public class PracticeAccentActivity extends AppCompatActivity implements OnMeasu
         pauseButton = findViewById(R.id.pauseButton);
         recordButton = findViewById(R.id.recordButton);
         closeButton = findViewById(R.id.closeButton);
+        captureButton = findViewById(R.id.captureButton);
 
         titleTextView = findViewById(R.id.titleTextView);
         simTextView = findViewById(R.id.simTextView);
@@ -147,9 +158,7 @@ public class PracticeAccentActivity extends AppCompatActivity implements OnMeasu
         pdHandler = new PitchDetectionHandler() {
             @Override
             public void handlePitch(PitchDetectionResult res, final AudioEvent e){
-                //Log.e("HandlePitch", "EndTimeStamp : " + e.getEndTimeStamp() + " | FrameLength :" + e.getFrameLength()
-                //+ " | Progress:" + e.getProgress() + " | TimeStamp: " + e.getTimeStamp());
-
+                currentTimeOffset = e.getTimeStamp() + lastPausedTimeOffset;
                 final int timeStamp = (int)(e.getTimeStamp() * 1000);
                 final float pitchInHz = res.getPitch();
                 runOnUiThread(new Runnable() {
@@ -166,13 +175,10 @@ public class PracticeAccentActivity extends AppCompatActivity implements OnMeasu
             public void onClick(View v) {
                 if (contents != null)
                 {
-                    play();
-                    /*
                     if(isPlaying)
                         resume();
                     else
                         play();
-                    */
                 }
             }
         });
@@ -205,23 +211,45 @@ public class PracticeAccentActivity extends AppCompatActivity implements OnMeasu
                 finish();
             }
         });
+
+        captureButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if(capture())
+                    Toast.makeText(PracticeAccentActivity.this, "화면이 캡쳐되었습니다.", Toast.LENGTH_LONG).show();
+                else
+                    Toast.makeText(PracticeAccentActivity.this, "화면이 캡쳐 실패", Toast.LENGTH_LONG).show();
+            }
+        });
     }
 
     private void processPitch(float pitchInHz, int timeStamp){
-        if (pitchInHz < 0)
-            pitchInHz = 0;
+        if(!isPaused)
+        {
+            if (pitchInHz < 0)
+                pitchInHz = 0;
 
-        playedPitchList.add(pitchInHz);
+            playedPitchList.add(pitchInHz);
 
-        graphLastXValue += 1d;
-        contentsPitchSeries.appendData(new DataPoint(graphLastXValue, pitchInHz), true, 300);
+            graphLastXValue += 1d;
+            contentsPitchSeries.appendData(new DataPoint(graphLastXValue, pitchInHz), true, 300);
 
-        playSeekBar.setProgress(timeStamp);
-        runningTimeTextView.setText(Tools.getTimeFormat(timeStamp/1000));
+            int progress = (int)this.lastPausedTimeOffset * 1000 + timeStamp;
+            if(duration-100 <= progress)
+            {
+                stop();
+                playSeekBar.setProgress(playSeekBar.getMax());
+            }
+            else
+            {
+                if(progress <= playSeekBar.getMax())
+                    playSeekBar.setProgress(progress);
+                else
+                    playSeekBar.setProgress(playSeekBar.getMax());
 
-        if(duration-10 <= timeStamp)
-            stop();
-
+                runningTimeTextView.setText(Tools.getTimeFormat(progress/1000));
+            }
+        }
     }
 
     private void play()
@@ -229,6 +257,7 @@ public class PracticeAccentActivity extends AppCompatActivity implements OnMeasu
         cacp.playContents(contents.getFilePath(), pdHandler);
         playedPitchList = new ArrayList<>();
         isPlaying = true;
+        isPaused = false;
         playButton.setVisibility(View.INVISIBLE);
         pauseButton.setVisibility(View.VISIBLE);
     }
@@ -236,6 +265,8 @@ public class PracticeAccentActivity extends AppCompatActivity implements OnMeasu
     private void pause()
     {
         cacp.pauseContents();
+        lastPausedTimeOffset = currentTimeOffset;
+        isPaused = true;
         playButton.setVisibility(View.VISIBLE);
         pauseButton.setVisibility(View.INVISIBLE);
     }
@@ -243,6 +274,7 @@ public class PracticeAccentActivity extends AppCompatActivity implements OnMeasu
     private void resume()
     {
         cacp.resumeContents(contents.getFilePath(), pdHandler, currentTimeOffset);
+        isPaused = false;
         playButton.setVisibility(View.INVISIBLE);
         pauseButton.setVisibility(View.VISIBLE);
     }
@@ -250,9 +282,12 @@ public class PracticeAccentActivity extends AppCompatActivity implements OnMeasu
     private void stop()
     {
         cacp.stopContents();
-        isPlaying =false;
+        isPlaying = false;
+        isPaused = false;
         playButton.setVisibility(View.VISIBLE);
         pauseButton.setVisibility(View.INVISIBLE);
+        currentTimeOffset = 0;
+        lastPausedTimeOffset = 0;
     }
 
     @Override
@@ -264,5 +299,54 @@ public class PracticeAccentActivity extends AppCompatActivity implements OnMeasu
     protected void onDestroy() {
         super.onDestroy();
         cacp.finishContents();
+    }
+
+    private boolean capture()
+    {
+        View root = this.getWindow().getDecorView().getRootView();
+        root.setDrawingCacheEnabled(true);
+        root.buildDrawingCache();
+        Bitmap screenshot = root.getDrawingCache();
+
+        int[] location = new int[2];
+        root.getLocationInWindow(location);
+
+        Bitmap bmp = Bitmap.createBitmap(screenshot, location[0], location[1], root.getWidth(), root.getHeight(), null, false);
+        String strFolderPath = Environment.getExternalStorageDirectory() + CAPTURE_PATH;
+        File folder = new File(strFolderPath);
+        if(!folder.exists()) {
+            folder.mkdirs();
+        }
+
+        String strFilePath = strFolderPath + "/" + System.currentTimeMillis() + ".png";
+        File fileCacheItem = new File(strFilePath);
+        OutputStream out = null;
+        try {
+            fileCacheItem.createNewFile();
+            out = new FileOutputStream(fileCacheItem);
+            bmp.compress(Bitmap.CompressFormat.PNG, 100, out);
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
+                final Intent scanIntent = new Intent(Intent.ACTION_MEDIA_SCANNER_SCAN_FILE);
+                final Uri contentUri = Uri.fromFile(fileCacheItem);
+                scanIntent.setData(contentUri);
+                sendBroadcast(scanIntent);
+            } else {
+                sendBroadcast(new Intent(Intent.ACTION_MEDIA_MOUNTED, Uri.parse("file://" + Environment.getExternalStorageDirectory())));
+            }
+            return true;
+        }
+        catch (Exception e) {
+            e.printStackTrace();
+        }
+        finally {
+            try {
+                out.close();
+            }
+            catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+        return false;
     }
 }

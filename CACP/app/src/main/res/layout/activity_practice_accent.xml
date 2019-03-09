@@ -138,6 +138,15 @@
                 android:layout_width="64dp"
                 android:layout_height="64dp"
                 app:srcCompat="@android:drawable/presence_audio_busy" />
+
+            <ImageButton
+                android:id="@+id/captureButton"
+                android:layout_width="64dp"
+                android:layout_height="64dp"
+                android:layout_gravity="right"
+                android:layout_marginRight="16dp"
+                app:srcCompat="@android:drawable/ic_menu_gallery" />
+
         </FrameLayout>
     </LinearLayout>
 

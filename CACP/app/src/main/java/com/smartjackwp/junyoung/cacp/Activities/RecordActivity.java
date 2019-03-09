@@ -16,7 +16,6 @@ import com.smartjackwp.junyoung.cacp.R;
 
 import java.util.ArrayList;
 
-import Interfaces.OnMeasuredSimilarityListener;
 import be.tarsos.dsp.AudioEvent;
 import be.tarsos.dsp.pitch.PitchDetectionHandler;
 import be.tarsos.dsp.pitch.PitchDetectionResult;

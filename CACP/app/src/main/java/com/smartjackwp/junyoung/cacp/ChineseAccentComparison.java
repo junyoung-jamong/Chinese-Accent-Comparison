@@ -4,6 +4,7 @@ import android.content.Context;
 import android.media.AudioManager;
 import android.os.Environment;
 import android.os.Handler;
+import android.util.Log;
 
 import com.smartjackwp.junyoung.cacp.Database.CacpDBManager;
 import com.smartjackwp.junyoung.cacp.Entity.AccentContents;
@@ -17,10 +18,12 @@ import java.io.RandomAccessFile;
 import java.nio.ByteOrder;
 import java.util.ArrayList;
 
-import Interfaces.OnMeasuredSimilarityListener;
+import com.smartjackwp.junyoung.cacp.Interfaces.OnMeasuredSimilarityListener;
 import be.tarsos.dsp.AudioDispatcher;
 import be.tarsos.dsp.AudioProcessor;
+import be.tarsos.dsp.io.PipedAudioStream;
 import be.tarsos.dsp.io.TarsosDSPAudioFormat;
+import be.tarsos.dsp.io.TarsosDSPAudioInputStream;
 import be.tarsos.dsp.io.android.AndroidAudioPlayer;
 import be.tarsos.dsp.io.android.AndroidFFMPEGLocator;
 import be.tarsos.dsp.io.android.AudioDispatcherFactory;
@@ -29,10 +32,11 @@ import be.tarsos.dsp.pitch.PitchProcessor;
 import be.tarsos.dsp.writer.WriterProcessor;
 
 public class ChineseAccentComparison {
+    public enum PLAYER_STATE {NONE, PLAY, PAUSE, RESUME, STOP}
     public static ChineseAccentComparison cac;
-    CacpDBManager cacpDB;
 
-    ArrayList<AccentContents> contentsList;
+    Context mContext;
+    CacpDBManager cacpDB;
 
     TarsosDSPAudioFormat tarsosDSPAudioFormat;
     AudioDispatcher dispatcher;
@@ -40,17 +44,16 @@ public class ChineseAccentComparison {
     AudioProcessor recordProcessor;
     AudioProcessor pitchProcessor;
     Thread audioThread;
+    Handler handler;
 
-    Context mContext;
-
-    String tempFileName = "cacp_temp.wav";
-
-    private final int GRID_M = 5;
+    private final int GRID_M = 8;
     private final int GRID_N = 10;
+    private final String tempFileName = "cacp_temp.wav";
+
+    private ArrayList<AccentContents> contentsList;
+    private PLAYER_STATE playerState = PLAYER_STATE.NONE;
 
     OnMeasuredSimilarityListener onMeasuredSimilarityListener;
-
-    Handler handler;
 
     private ChineseAccentComparison(Context context){
         this.mContext = context;
@@ -120,6 +123,8 @@ public class ChineseAccentComparison {
     //Contents 이용관련
     public void playContents(String filePath, PitchDetectionHandler pdHandler)
     {
+        playerState = PLAYER_STATE.PLAY;
+
         initFileDispatcher(filePath, pdHandler);
 
         if(dispatcher != null)
@@ -131,18 +136,24 @@ public class ChineseAccentComparison {
 
     public void pauseContents()
     {
-        if(!dispatcher.isStopped())
+        playerState = PLAYER_STATE.PAUSE;
+
+        if(dispatcher != null && !dispatcher.isStopped())
             dispatcher.stop();
     }
 
     public void stopContents()
     {
-        if(!dispatcher.isStopped())
+        playerState = PLAYER_STATE.STOP;
+
+        if(dispatcher != null && !dispatcher.isStopped())
             dispatcher.stop();
     }
 
     public void resumeContents(String filePath, PitchDetectionHandler pdHandler, double startTimeOffset)
     {
+        playerState = PLAYER_STATE.RESUME;
+
         initFileDispatcher(filePath, pdHandler, startTimeOffset);
 
         if(dispatcher != null)
@@ -271,7 +282,11 @@ public class ChineseAccentComparison {
             //dispatcher = new AudioDispatcher(new UniversalAudioInputStream(fileInputStream, tarsosDSPAudioFormat), 1024, 0);
 
             new AndroidFFMPEGLocator(mContext);
-            dispatcher = AudioDispatcherFactory.fromPipe(filePath, 22050, 1024, 0);
+            //dispatcher = AudioDispatcherFactory.fromPipe(filePath, 22050, 1024, 0);
+            PipedAudioStream f = new PipedAudioStream(filePath);
+            TarsosDSPAudioInputStream audioStream = f.getMonoStream(22050, startTimeOffset);
+            dispatcher = new AudioDispatcher(audioStream, 1024, 0);
+            Log.e("initFileDispatcher()", "startTimeOffset : "+ startTimeOffset);
 
             playerProcessor = new AndroidAudioPlayer(tarsosDSPAudioFormat, 5000, AudioManager.STREAM_MUSIC);
             dispatcher.addAudioProcessor(playerProcessor);
