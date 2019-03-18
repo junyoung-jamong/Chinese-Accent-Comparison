@@ -10,6 +10,7 @@ import android.os.Build;
 import android.os.Environment;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.View;
 import android.widget.ImageButton;
 import android.widget.SeekBar;
@@ -52,6 +53,8 @@ public class PracticeAccentActivity extends AppCompatActivity implements OnMeasu
     GraphView contentsPitchGraph;
     GraphView similarityGraph;
     private LineGraphSeries<DataPoint> contentsPitchSeries;
+    private LineGraphSeries<DataPoint> flowSeries;
+    private LineGraphSeries<DataPoint> toneSeries;
     private double graphLastXValue = 1d;
     PitchDetectionHandler pdHandler;
 
@@ -69,6 +72,8 @@ public class PracticeAccentActivity extends AppCompatActivity implements OnMeasu
     ArrayList<Float> playedPitchList;
 
     private static final String CAPTURE_PATH = "/CACP_CAPTURE";
+
+    final int RECORDED_COLOR = Color.rgb(0xF1,0x70,0x68);
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -90,26 +95,58 @@ public class PracticeAccentActivity extends AppCompatActivity implements OnMeasu
 
     @Override
     public void onMeasured(double sim, ArrayList<Float> playedPitch, ArrayList<Float> recordedPitch) {
+        int max = Math.max(playedPitch.size(), recordedPitch.size());
+        similarityGraph.removeAllSeries();
+        similarityGraph.getViewport().setMaxX(max);
+
         simTextView.setVisibility(View.VISIBLE);
         simTextView.setText("유사도 점수: " + Math.round(sim) + "%");
 
+        LineGraphSeries<DataPoint> flowPitchSeries = new LineGraphSeries<>();
         LineGraphSeries<DataPoint> playedPitchSeries = new LineGraphSeries<>();
         LineGraphSeries<DataPoint> recordedPitchSeries = new LineGraphSeries<>();
 
+        flowPitchSeries.setColor(Color.TRANSPARENT);
+        similarityGraph.addSeries(flowPitchSeries);
+
+        for(int i=0; i<max; i++)
+            flowPitchSeries.appendData(new DataPoint(i+1, 0), false, playedPitch.size());
+
         for(int i=0; i<playedPitch.size(); i++)
-            playedPitchSeries.appendData(new DataPoint(i+1, playedPitch.get(i)), true, 300);
+        {
+            if(playedPitch.get(i) > 0)
+            {
+                if(playedPitchSeries == null)
+                {
+                    playedPitchSeries = new LineGraphSeries<>();
+                    similarityGraph.addSeries(playedPitchSeries);
+                }
+                playedPitchSeries.appendData(new DataPoint(i+1, playedPitch.get(i)), false, playedPitch.size());
+            }
+            else
+            {
+                playedPitchSeries = null;
+            }
+        }
 
         for(int i=0; i<recordedPitch.size(); i++)
-            recordedPitchSeries.appendData(new DataPoint(i+1, recordedPitch.get(i)), true, 300);
-
-        playedPitchSeries.setColor(Color.rgb(0xF1,0x70,0x68));
-
-        similarityGraph.getViewport().setMaxX(Math.max(playedPitch.size(), recordedPitch.size()));
-        similarityGraph.removeAllSeries();
-        similarityGraph.addSeries(playedPitchSeries);
-        similarityGraph.addSeries(recordedPitchSeries);
+        {
+            if(recordedPitch.get(i) > 0)
+            {
+                if(recordedPitchSeries == null)
+                {
+                    recordedPitchSeries = new LineGraphSeries<>();
+                    recordedPitchSeries.setColor(RECORDED_COLOR);
+                    similarityGraph.addSeries(recordedPitchSeries);
+                }
+                recordedPitchSeries.appendData(new DataPoint(i+1, recordedPitch.get(i)), false, playedPitch.size());
+            }
+            else
+            {
+                recordedPitchSeries = null;
+            }
+        }
         similarityGraph.setVisibility(View.VISIBLE);
-
     }
 
     private void initUI()
@@ -143,10 +180,11 @@ public class PracticeAccentActivity extends AppCompatActivity implements OnMeasu
         similarityGraph.getGridLabelRenderer().setVerticalLabelsVisible(false);
 
         contentsPitchSeries = new LineGraphSeries<>();
-        contentsPitchSeries.setColor(Color.rgb(0xF1,0x70,0x68));
-        contentsPitchSeries.setDataPointsRadius(50);
-        contentsPitchSeries.setThickness(10);
-        contentsPitchGraph.addSeries(contentsPitchSeries);
+
+        flowSeries = new LineGraphSeries<>();
+        flowSeries.setColor(Color.TRANSPARENT);
+
+        contentsPitchGraph.addSeries(flowSeries);
         contentsPitchGraph.getGridLabelRenderer().setHorizontalLabelsVisible(false);
         contentsPitchGraph.getGridLabelRenderer().setVerticalLabelsVisible(false);
         contentsPitchGraph.getViewport().setXAxisBoundsManual(true);
@@ -232,7 +270,21 @@ public class PracticeAccentActivity extends AppCompatActivity implements OnMeasu
             playedPitchList.add(pitchInHz);
 
             graphLastXValue += 1d;
-            contentsPitchSeries.appendData(new DataPoint(graphLastXValue, pitchInHz), true, 300);
+            if(pitchInHz > 0)
+            {
+                if(toneSeries == null)
+                {
+                    toneSeries = new LineGraphSeries<>();
+                    contentsPitchGraph.addSeries(toneSeries);
+                }
+                contentsPitchSeries.appendData(new DataPoint(graphLastXValue, pitchInHz), true, 300);
+                toneSeries.appendData(new DataPoint(graphLastXValue, pitchInHz), true, 300);
+            }
+            else
+            {
+                toneSeries = null;
+                flowSeries.appendData(new DataPoint(graphLastXValue, pitchInHz), true, 300);
+            }
 
             int progress = (int)this.lastPausedTimeOffset * 1000 + timeStamp;
             if(duration-100 <= progress)

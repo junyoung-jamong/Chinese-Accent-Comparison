@@ -29,7 +29,9 @@ public class RecordActivity extends AppCompatActivity {
     PitchDetectionHandler pdHandler;
 
     private LineGraphSeries<DataPoint> playedGraphSeries;
+    private LineGraphSeries<DataPoint> playedFlowGraphSeries;
     private LineGraphSeries<DataPoint> recordingGraphSeries;
+    private LineGraphSeries<DataPoint> recordingFlowGraphSeries;
     private double graphLastXValue = 1d;
 
     ChineseAccentComparison cacp;
@@ -43,6 +45,8 @@ public class RecordActivity extends AppCompatActivity {
     AccentContents contents;
 
     final int GRAPH_X_LENGTH = 100;
+
+    final int RECORD_COLOR = Color.rgb(0xF1,0x70,0x68);
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -65,23 +69,37 @@ public class RecordActivity extends AppCompatActivity {
         startRecordButton = findViewById(R.id.startRecordButton);
         endRecordButton = findViewById(R.id.endRecordButton);
 
-        playedGraphSeries = new LineGraphSeries<>();
-        playedGraphSeries.setColor(Color.BLUE);
-        playedGraphSeries.setDataPointsRadius(50);
-        playedGraphSeries.setThickness(10);
-
         playedPitchList = contents.getPlayedPitchList();
         playedPitchListSize = playedPitchList.size();
         maximumSize = playedPitchListSize+5;
-        for(int i=0; i<playedPitchListSize; i++)
-            playedGraphSeries.appendData(new DataPoint(i+1, playedPitchList.get(i)), false, 300);
 
-        recordingGraphView.addSeries(playedGraphSeries);
+        playedFlowGraphSeries = new LineGraphSeries<>();
+        playedFlowGraphSeries.setColor(Color.TRANSPARENT);
+        recordingFlowGraphSeries = new LineGraphSeries<>();
+        recordingFlowGraphSeries.setColor(RECORD_COLOR);
+        recordingGraphView.addSeries(playedFlowGraphSeries);
+        recordingGraphView.addSeries(recordingFlowGraphSeries);
+
+        for(int i=0; i<playedPitchListSize; i++)
+        {
+            if(playedPitchList.get(i) > 0)
+            {
+                if(playedGraphSeries == null)
+                {
+                    playedGraphSeries = new LineGraphSeries<>();
+                    recordingGraphView.addSeries(playedGraphSeries);
+                }
+                playedGraphSeries.appendData(new DataPoint(i+1, playedPitchList.get(i)), false, 300);
+            }
+            else
+            {
+                playedGraphSeries = null;
+                playedFlowGraphSeries.appendData(new DataPoint(i+1, playedPitchList.get(i)), false, 300);
+            }
+        }
 
         recordingGraphSeries = new LineGraphSeries<>();
         recordingGraphSeries.setColor(Color.rgb(0xF1,0x70,0x68));
-        recordingGraphSeries.setDataPointsRadius(50);
-        recordingGraphSeries.setThickness(10);
         recordingGraphView.addSeries(recordingGraphSeries);
         recordingGraphView.getGridLabelRenderer().setHorizontalLabelsVisible(false);
         recordingGraphView.getGridLabelRenderer().setVerticalLabelsVisible(false);
@@ -136,7 +154,20 @@ public class RecordActivity extends AppCompatActivity {
         recordedPitchList.add(pitchInHz);
 
         graphLastXValue += 1d;
-        recordingGraphSeries.appendData(new DataPoint(graphLastXValue, pitchInHz), false, 300);
+        if(pitchInHz > 0)
+        {
+            if(recordingGraphSeries == null)
+            {
+                recordingGraphSeries = new LineGraphSeries<>();
+                recordingGraphSeries.setColor(RECORD_COLOR);
+                recordingGraphView.addSeries(recordingGraphSeries);
+            }
+            recordingGraphSeries.appendData(new DataPoint(graphLastXValue, pitchInHz), false, 300);
+        }
+        else
+            recordingGraphSeries = null;
+        recordingFlowGraphSeries.appendData(new DataPoint(graphLastXValue, 0), false, 300);
+
         if(graphLastXValue > GRAPH_X_LENGTH)
         {
             recordingGraphView.getViewport().setMinX(graphLastXValue-GRAPH_X_LENGTH);

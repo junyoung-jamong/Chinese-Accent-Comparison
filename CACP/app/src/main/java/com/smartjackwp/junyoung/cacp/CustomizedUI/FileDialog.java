@@ -144,6 +144,22 @@ public class FileDialog {
             }
         }
         fileList = (String[]) r.toArray(new String[]{});
+
+        //getFilesList(path);
+    }
+
+    public void getFilesList(File path) {
+        File root;
+        if(path == null)
+            root  = Environment.getExternalStorageDirectory();
+        else
+            root = path;
+        File[] fileList = root.listFiles();
+        for(int i=0; i<fileList.length; i++){
+
+            if(fileList[i].toString().contains(".mp3") || fileList[i].toString().contains(".wav"))
+                Log.e("getFileList", fileList[i].toString());
+        }
     }
 
     private File getChosenFile(String fileChosen) {
