@@ -74,7 +74,7 @@ public class PracticeAccentActivity extends AppCompatActivity implements OnMeasu
     boolean isPlaying = false;
     boolean isPaused = false;
 
-    ArrayList<Float> playedPitchList;
+    ArrayList<Float> playedPitchList = new ArrayList<>();
 
     private static final String CAPTURE_PATH = "/CACP_CAPTURE";
 
@@ -184,17 +184,7 @@ public class PracticeAccentActivity extends AppCompatActivity implements OnMeasu
         titleTextView.setText(contents.getTitle());
         durationTextView.setText(Tools.getTimeFormat(Math.ceil(contents.getDuration())));
 
-        if(this.subtitle != null)
-        {
-            ArrayList<SubtitleUnit> subtitleUnits = subtitle.getSubtitleUnits();
-            if(subtitleUnits != null && subtitleUnits.size() > 0)
-            {
-                String[] contents = subtitleUnits.get(0).getContents();
-                subtitleTextView.setText(contents[0]);
-                pinyinTextView.setText(contents[1]);
-                currentSubtitleIndex = 0;
-            }
-        }
+        initSubtitle();
 
         similarityGraph.getViewport().setXAxisBoundsManual(true);
         similarityGraph.getViewport().setMinX(0);
@@ -370,6 +360,8 @@ public class PracticeAccentActivity extends AppCompatActivity implements OnMeasu
         isPaused = false;
         playButton.setVisibility(View.INVISIBLE);
         pauseButton.setVisibility(View.VISIBLE);
+
+        initSubtitle();
     }
 
     private void pause()
@@ -403,6 +395,21 @@ public class PracticeAccentActivity extends AppCompatActivity implements OnMeasu
         pauseButton.setVisibility(View.INVISIBLE);
         currentTimeOffset = 0;
         lastPausedTimeOffset = 0;
+    }
+
+    private void initSubtitle()
+    {
+        if(this.subtitle != null)
+        {
+            ArrayList<SubtitleUnit> subtitleUnits = subtitle.getSubtitleUnits();
+            if(subtitleUnits != null && subtitleUnits.size() > 0)
+            {
+                String[] contents = subtitleUnits.get(0).getContents();
+                subtitleTextView.setText(contents[0]);
+                pinyinTextView.setText(contents[1]);
+                currentSubtitleIndex = 0;
+            }
+        }
     }
 
 

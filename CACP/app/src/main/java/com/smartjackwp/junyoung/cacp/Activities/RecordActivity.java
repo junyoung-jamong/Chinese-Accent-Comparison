@@ -6,15 +6,20 @@ import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.view.View;
 import android.widget.ImageButton;
+import android.widget.TextView;
 
 import com.jjoe64.graphview.GraphView;
+import com.jjoe64.graphview.GridLabelRenderer;
 import com.jjoe64.graphview.series.DataPoint;
 import com.jjoe64.graphview.series.LineGraphSeries;
 import com.smartjackwp.junyoung.cacp.ChineseAccentComparison;
 import com.smartjackwp.junyoung.cacp.Entity.AccentContents;
+import com.smartjackwp.junyoung.cacp.Entity.Subtitle;
+import com.smartjackwp.junyoung.cacp.Entity.SubtitleUnit;
 import com.smartjackwp.junyoung.cacp.R;
 
 import java.util.ArrayList;
+import java.util.List;
 
 import be.tarsos.dsp.AudioEvent;
 import be.tarsos.dsp.pitch.PitchDetectionHandler;
@@ -25,6 +30,9 @@ public class RecordActivity extends AppCompatActivity {
     GraphView recordingGraphView;
     ImageButton startRecordButton;
     ImageButton endRecordButton;
+
+    TextView subtitleTextView;
+    TextView pinyinTextView;
 
     PitchDetectionHandler pdHandler;
 
@@ -43,10 +51,14 @@ public class RecordActivity extends AppCompatActivity {
 
     int contentId;
     AccentContents contents;
+    Subtitle subtitle;
+    int currentSubtitleIndex;
 
     final int GRAPH_X_LENGTH = 100;
 
-    final int RECORD_COLOR = Color.rgb(0xF1,0x70,0x68);
+    final int BACKGROUND_COLOR = Color.rgb(0x3f, 0x53, 0x6e);
+    final int PLAYED_COLOR = Color.rgb(0x26, 0xc5, 0xcd);
+    final int RECORD_COLOR = Color.rgb(0xfd, 0xcc, 0x00);
     final int THICKNESS = 15;
 
     @Override
@@ -61,7 +73,10 @@ public class RecordActivity extends AppCompatActivity {
         contents = cacp.findContentsById(contentId);
 
         if(contents != null)
+        {
+            this.subtitle = contents.getSubtitle();
             initUI();
+        }
     }
 
     private void initUI()
@@ -69,6 +84,21 @@ public class RecordActivity extends AppCompatActivity {
         recordingGraphView = findViewById(R.id.recordingGraphView);
         startRecordButton = findViewById(R.id.startRecordButton);
         endRecordButton = findViewById(R.id.endRecordButton);
+
+        subtitleTextView = findViewById(R.id.subtitleTextView);
+        pinyinTextView = findViewById(R.id.pinyinTextView);
+
+        if(this.subtitle != null)
+        {
+            ArrayList<SubtitleUnit> subtitleUnits = subtitle.getSubtitleUnits();
+            if(subtitleUnits != null && subtitleUnits.size() > 0)
+            {
+                String[] contents = subtitleUnits.get(0).getContents();
+                subtitleTextView.setText(contents[0]);
+                pinyinTextView.setText(contents[1]);
+                currentSubtitleIndex = 0;
+            }
+        }
 
         playedPitchList = contents.getPlayedPitchList();
         playedPitchListSize = playedPitchList.size();
@@ -78,6 +108,10 @@ public class RecordActivity extends AppCompatActivity {
         playedFlowGraphSeries.setColor(Color.TRANSPARENT);
         recordingFlowGraphSeries = new LineGraphSeries<>();
         recordingFlowGraphSeries.setColor(RECORD_COLOR);
+
+        recordingGraphView.getGridLabelRenderer().setGridStyle(GridLabelRenderer.GridStyle.HORIZONTAL);
+        recordingGraphView.getGridLabelRenderer().setGridColor(BACKGROUND_COLOR);
+        recordingGraphView.getGridLabelRenderer().setHorizontalAxisTitleColor(BACKGROUND_COLOR);
         recordingGraphView.addSeries(playedFlowGraphSeries);
         recordingGraphView.addSeries(recordingFlowGraphSeries);
 
@@ -89,6 +123,7 @@ public class RecordActivity extends AppCompatActivity {
                 {
                     playedGraphSeries = new LineGraphSeries<>();
                     playedGraphSeries.setThickness(THICKNESS);
+                    playedGraphSeries.setColor(PLAYED_COLOR);
                     recordingGraphView.addSeries(playedGraphSeries);
                 }
                 playedGraphSeries.appendData(new DataPoint(i+1, playedPitchList.get(i)), false, 300);
@@ -116,11 +151,12 @@ public class RecordActivity extends AppCompatActivity {
         pdHandler = new PitchDetectionHandler() {
             @Override
             public void handlePitch(PitchDetectionResult res, AudioEvent e){
+                final long timeStamp = Math.round( e.getTimeStamp() * 1000);
                 final float pitchInHz = res.getPitch();
                 runOnUiThread(new Runnable() {
                     @Override
                     public void run() {
-                        processPitch(pitchInHz);
+                        processPitch(pitchInHz, timeStamp);
                     }
                 });
             }
@@ -150,7 +186,7 @@ public class RecordActivity extends AppCompatActivity {
 
     }
 
-    private void processPitch(float pitchInHz){
+    private void processPitch(float pitchInHz, long timeStamp){
         if (pitchInHz < 0)
             pitchInHz = 0;
 
@@ -181,6 +217,29 @@ public class RecordActivity extends AppCompatActivity {
         if(graphLastXValue > maximumSize)
             stopRecording();
 
+        setSubtitle(timeStamp);
+
+    }
+
+    private void setSubtitle(long progress)
+    {
+        if(subtitle != null)
+        {
+            List<SubtitleUnit> subtitleUnits = subtitle.getSubtitleUnits();
+            if(currentSubtitleIndex < subtitleUnits.size())
+            {
+                if(subtitleUnits.get(currentSubtitleIndex).getEndTimeMillisecond() <= progress)
+                {
+                    String[] contents = subtitleUnits.get(currentSubtitleIndex).getContents();
+                    if(contents.length >= 2)
+                    {
+                        subtitleTextView.setText(contents[0]);
+                        pinyinTextView.setText(contents[1]);
+                    }
+                    currentSubtitleIndex++;
+                }
+            }
+        }
     }
 
     @Override
