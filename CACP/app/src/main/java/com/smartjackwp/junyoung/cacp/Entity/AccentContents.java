@@ -1,7 +1,9 @@
 package com.smartjackwp.junyoung.cacp.Entity;
 
 import android.media.MediaMetadataRetriever;
+import android.util.Log;
 
+import java.io.File;
 import java.util.ArrayList;
 
 //원어민 억양 음성 파일 컨텐츠
@@ -15,7 +17,8 @@ public class AccentContents {
     private String filePath; //음성 파일 경로
     private String title; //파일 제목
     private String description; //파일 설명
-    private double duration; //재생시간
+    private double duration; //재생시간 second
+    private Subtitle subtitle; //자막
 
     private ArrayList<Float> playedPitchList;
     private ArrayList<Float> recordedPitchList;
@@ -26,6 +29,7 @@ public class AccentContents {
         this.title = title;
         this.description = description;
         this.duration = getAudioDuration(filePath);
+        this.subtitle = getAudioSubtitle(filePath);
     }
 
     public AccentContents(int id, String filePath, String title, String description)
@@ -35,6 +39,7 @@ public class AccentContents {
         this.title = title;
         this.description = description;
         this.duration = getAudioDuration(filePath);
+        this.subtitle = getAudioSubtitle(filePath);
     }
 
     public int getId() {
@@ -77,8 +82,7 @@ public class AccentContents {
         return this.playedPitchList;
     }
 
-    public void setRecordedPitchList(ArrayList<Float> recordedPitchList)
-    {
+    public void setRecordedPitchList(ArrayList<Float> recordedPitchList){
         this.recordedPitchList = recordedPitchList;
     }
 
@@ -86,15 +90,33 @@ public class AccentContents {
         return this.recordedPitchList;
     }
 
+    public Subtitle getSubtitle(){
+        return this.subtitle;
+    }
+
     private double getAudioDuration(String filePath)
     {
         MediaMetadataRetriever retriever = new MediaMetadataRetriever();
         retriever.setDataSource(filePath);
 
-        String duration = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION);
-        long lDuration = Long.parseLong(duration);
+        String durationString = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION);
+        double duration = Double.parseDouble(durationString) + 1000;
+        return duration/1000;
+    }
 
-        return lDuration/1000;
+    private Subtitle getAudioSubtitle(String filePath)
+    {
+        String[] splitPath = filePath.split("\\.");
+
+        if(splitPath.length > 0)
+        {
+            String extension = splitPath[splitPath.length-1];
+            String subtitlePath = filePath.substring(0, filePath.length() - extension.length()) + "srt";
+            if(new File(subtitlePath).exists())
+                return new Subtitle(subtitlePath);
+        }
+
+        return null;
     }
 
 }

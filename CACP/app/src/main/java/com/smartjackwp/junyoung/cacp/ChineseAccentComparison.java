@@ -265,7 +265,6 @@ public class ChineseAccentComparison {
             pitchProcessor = new PitchProcessor(PitchProcessor.PitchEstimationAlgorithm.FFT_YIN, 22050, 1024, pdHandler);
             dispatcher.addAudioProcessor(pitchProcessor);
 
-
         }catch(Exception exception)
         {
             exception.printStackTrace();

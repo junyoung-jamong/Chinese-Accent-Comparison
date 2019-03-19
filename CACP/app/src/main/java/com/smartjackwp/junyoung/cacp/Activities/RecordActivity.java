@@ -47,6 +47,7 @@ public class RecordActivity extends AppCompatActivity {
     final int GRAPH_X_LENGTH = 100;
 
     final int RECORD_COLOR = Color.rgb(0xF1,0x70,0x68);
+    final int THICKNESS = 15;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -87,6 +88,7 @@ public class RecordActivity extends AppCompatActivity {
                 if(playedGraphSeries == null)
                 {
                     playedGraphSeries = new LineGraphSeries<>();
+                    playedGraphSeries.setThickness(THICKNESS);
                     recordingGraphView.addSeries(playedGraphSeries);
                 }
                 playedGraphSeries.appendData(new DataPoint(i+1, playedPitchList.get(i)), false, 300);
@@ -100,6 +102,7 @@ public class RecordActivity extends AppCompatActivity {
 
         recordingGraphSeries = new LineGraphSeries<>();
         recordingGraphSeries.setColor(Color.rgb(0xF1,0x70,0x68));
+        recordingGraphSeries.setThickness(THICKNESS);
         recordingGraphView.addSeries(recordingGraphSeries);
         recordingGraphView.getGridLabelRenderer().setHorizontalLabelsVisible(false);
         recordingGraphView.getGridLabelRenderer().setVerticalLabelsVisible(false);
@@ -160,6 +163,7 @@ public class RecordActivity extends AppCompatActivity {
             {
                 recordingGraphSeries = new LineGraphSeries<>();
                 recordingGraphSeries.setColor(RECORD_COLOR);
+                recordingGraphSeries.setThickness(THICKNESS);
                 recordingGraphView.addSeries(recordingGraphSeries);
             }
             recordingGraphSeries.appendData(new DataPoint(graphLastXValue, pitchInHz), false, 300);

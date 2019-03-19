@@ -31,13 +31,17 @@
 
     <FrameLayout
         android:layout_width="match_parent"
-        android:layout_height="220dp">
+        android:layout_height="180dp">
 
         <com.jjoe64.graphview.GraphView
             android:id="@+id/contentsPitchGraph"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:layout_margin="16dp" />
+            android:layout_margin="16dp"
+            android:layout_marginLeft="16dp"
+            android:layout_marginTop="8dp"
+            android:layout_marginRight="16dp"
+            android:layout_marginBottom="8dp" />
 
     </FrameLayout>
 
@@ -77,6 +81,33 @@
             android:text="0:00" />
     </LinearLayout>
 
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="52dp"
+        android:orientation="vertical">
+
+        <TextView
+            android:id="@+id/subtitleTextView"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:layout_weight="1"
+            android:gravity="center"
+            android:singleLine="true"
+            android:text="자막이 없습니다."
+            android:textSize="18sp" />
+
+        <TextView
+            android:id="@+id/pinyinTextView"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:layout_weight="1"
+            android:gravity="center"
+            android:singleLine="true" />
+    </LinearLayout>
+
+
     <FrameLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent"
@@ -98,7 +129,7 @@
         android:gravity="center"
         android:text="유사도 점수:"
         android:textColor="@android:color/holo_blue_dark"
-        android:textSize="30sp"
+        android:textSize="26sp"
         android:textStyle="italic"
         android:visibility="invisible" />
 

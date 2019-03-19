@@ -1,7 +1,5 @@
 package com.smartjackwp.junyoung.cacp.Activities;
 
-import android.app.Activity;
-import android.content.Context;
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.Color;
@@ -22,6 +20,8 @@ import com.jjoe64.graphview.series.DataPoint;
 import com.jjoe64.graphview.series.LineGraphSeries;
 import com.smartjackwp.junyoung.cacp.ChineseAccentComparison;
 import com.smartjackwp.junyoung.cacp.Entity.AccentContents;
+import com.smartjackwp.junyoung.cacp.Entity.Subtitle;
+import com.smartjackwp.junyoung.cacp.Entity.SubtitleUnit;
 import com.smartjackwp.junyoung.cacp.R;
 import com.smartjackwp.junyoung.cacp.Utils.Tools;
 
@@ -30,6 +30,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.ArrayList;
+import java.util.List;
 
 import com.smartjackwp.junyoung.cacp.Interfaces.OnMeasuredSimilarityListener;
 import be.tarsos.dsp.AudioEvent;
@@ -47,6 +48,8 @@ public class PracticeAccentActivity extends AppCompatActivity implements OnMeasu
     TextView simTextView;
     TextView durationTextView;
     TextView runningTimeTextView;
+    TextView subtitleTextView;
+    TextView pinyinTextView;
 
     SeekBar playSeekBar;
 
@@ -65,6 +68,8 @@ public class PracticeAccentActivity extends AppCompatActivity implements OnMeasu
     int duration;
     double currentTimeOffset;
     double lastPausedTimeOffset;
+    Subtitle subtitle;
+    int currentSubtitleIndex;
 
     boolean isPlaying = false;
     boolean isPaused = false;
@@ -74,6 +79,7 @@ public class PracticeAccentActivity extends AppCompatActivity implements OnMeasu
     private static final String CAPTURE_PATH = "/CACP_CAPTURE";
 
     final int RECORDED_COLOR = Color.rgb(0xF1,0x70,0x68);
+    final int THICKNESS = 15;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -88,6 +94,7 @@ public class PracticeAccentActivity extends AppCompatActivity implements OnMeasu
 
         if(contents != null)
         {
+            this.subtitle = contents.getSubtitle();
             initUI();
             cacp.setOnMeasuredSimilarityListener(this);
         }
@@ -119,6 +126,7 @@ public class PracticeAccentActivity extends AppCompatActivity implements OnMeasu
                 if(playedPitchSeries == null)
                 {
                     playedPitchSeries = new LineGraphSeries<>();
+                    playedPitchSeries.setThickness(THICKNESS);
                     similarityGraph.addSeries(playedPitchSeries);
                 }
                 playedPitchSeries.appendData(new DataPoint(i+1, playedPitch.get(i)), false, playedPitch.size());
@@ -137,6 +145,7 @@ public class PracticeAccentActivity extends AppCompatActivity implements OnMeasu
                 {
                     recordedPitchSeries = new LineGraphSeries<>();
                     recordedPitchSeries.setColor(RECORDED_COLOR);
+                    recordedPitchSeries.setThickness(THICKNESS);
                     similarityGraph.addSeries(recordedPitchSeries);
                 }
                 recordedPitchSeries.appendData(new DataPoint(i+1, recordedPitch.get(i)), false, playedPitch.size());
@@ -161,16 +170,31 @@ public class PracticeAccentActivity extends AppCompatActivity implements OnMeasu
         simTextView = findViewById(R.id.simTextView);
         durationTextView = findViewById(R.id.durationTextView);
         runningTimeTextView = findViewById(R.id.runningTimeTextView);
+        subtitleTextView = findViewById(R.id.subtitleTextView);
+        pinyinTextView = findViewById(R.id.pinyinTextView);
 
         playSeekBar = findViewById(R.id.playSeekBar);
         this.duration = (int)(contents.getDuration()*1000);
-        playSeekBar.setMax(duration);
+
+        playSeekBar.setMax(Math.max(duration-1000, 1000));
 
         contentsPitchGraph = findViewById(R.id.contentsPitchGraph);
         similarityGraph = findViewById(R.id.similarityGraph);
 
         titleTextView.setText(contents.getTitle());
-        durationTextView.setText(Tools.getTimeFormat((long)contents.getDuration()));
+        durationTextView.setText(Tools.getTimeFormat(Math.ceil(contents.getDuration())));
+
+        if(this.subtitle != null)
+        {
+            ArrayList<SubtitleUnit> subtitleUnits = subtitle.getSubtitleUnits();
+            if(subtitleUnits != null && subtitleUnits.size() > 0)
+            {
+                String[] contents = subtitleUnits.get(0).getContents();
+                subtitleTextView.setText(contents[0]);
+                pinyinTextView.setText(contents[1]);
+                currentSubtitleIndex = 0;
+            }
+        }
 
         similarityGraph.getViewport().setXAxisBoundsManual(true);
         similarityGraph.getViewport().setMinX(0);
@@ -197,7 +221,7 @@ public class PracticeAccentActivity extends AppCompatActivity implements OnMeasu
             @Override
             public void handlePitch(PitchDetectionResult res, final AudioEvent e){
                 currentTimeOffset = e.getTimeStamp() + lastPausedTimeOffset;
-                final int timeStamp = (int)(e.getTimeStamp() * 1000);
+                final long timeStamp = Math.round(currentTimeOffset * 1000);
                 final float pitchInHz = res.getPitch();
                 runOnUiThread(new Runnable() {
                     @Override
@@ -261,45 +285,79 @@ public class PracticeAccentActivity extends AppCompatActivity implements OnMeasu
         });
     }
 
-    private void processPitch(float pitchInHz, int timeStamp){
+    private void processPitch(float pitchInHz, long timeStamp){
         if(!isPaused)
         {
             if (pitchInHz < 0)
                 pitchInHz = 0;
 
             playedPitchList.add(pitchInHz);
+            drawPitchGraph(pitchInHz);
 
-            graphLastXValue += 1d;
-            if(pitchInHz > 0)
+            long progress = timeStamp;
+            setProgressBar(progress);
+            setSubtitle(progress);
+
+            if(timeStamp >= this.duration-1000)
+                initPlaying();
+        }
+    }
+
+    private void drawPitchGraph(float pitchInHz)
+    {
+        graphLastXValue += 1d;
+        if(pitchInHz > 0)
+        {
+            if(toneSeries == null)
             {
-                if(toneSeries == null)
-                {
-                    toneSeries = new LineGraphSeries<>();
-                    contentsPitchGraph.addSeries(toneSeries);
-                }
-                contentsPitchSeries.appendData(new DataPoint(graphLastXValue, pitchInHz), true, 300);
-                toneSeries.appendData(new DataPoint(graphLastXValue, pitchInHz), true, 300);
+                toneSeries = new LineGraphSeries<>();
+                toneSeries.setThickness(THICKNESS);
+                contentsPitchGraph.addSeries(toneSeries);
             }
+            contentsPitchSeries.appendData(new DataPoint(graphLastXValue, pitchInHz), true, 300);
+            toneSeries.appendData(new DataPoint(graphLastXValue, pitchInHz), true, 300);
+        }
+        else
+        {
+            toneSeries = null;
+            flowSeries.appendData(new DataPoint(graphLastXValue, pitchInHz), true, 300);
+        }
+    }
+
+    private void setProgressBar(long progress)
+    {
+        if(duration <= progress)
+        {
+            playSeekBar.setProgress(playSeekBar.getMax());
+        }
+        else
+        {
+            if(progress <= playSeekBar.getMax())
+                playSeekBar.setProgress((int)progress);
             else
-            {
-                toneSeries = null;
-                flowSeries.appendData(new DataPoint(graphLastXValue, pitchInHz), true, 300);
-            }
-
-            int progress = (int)this.lastPausedTimeOffset * 1000 + timeStamp;
-            if(duration-100 <= progress)
-            {
-                stop();
                 playSeekBar.setProgress(playSeekBar.getMax());
-            }
-            else
-            {
-                if(progress <= playSeekBar.getMax())
-                    playSeekBar.setProgress(progress);
-                else
-                    playSeekBar.setProgress(playSeekBar.getMax());
 
-                runningTimeTextView.setText(Tools.getTimeFormat(progress/1000));
+            runningTimeTextView.setText(Tools.getTimeFormat(progress/1000));
+        }
+    }
+
+    private void setSubtitle(long progress)
+    {
+        if(subtitle != null)
+        {
+            List<SubtitleUnit> subtitleUnits = subtitle.getSubtitleUnits();
+            if(currentSubtitleIndex < subtitleUnits.size())
+            {
+                if(subtitleUnits.get(currentSubtitleIndex).getEndTimeMillisecond() <= progress)
+                {
+                    String[] contents = subtitleUnits.get(currentSubtitleIndex).getContents();
+                    if(contents.length >= 2)
+                    {
+                        subtitleTextView.setText(contents[0]);
+                        pinyinTextView.setText(contents[1]);
+                    }
+                    currentSubtitleIndex++;
+                }
             }
         }
     }
@@ -334,6 +392,11 @@ public class PracticeAccentActivity extends AppCompatActivity implements OnMeasu
     private void stop()
     {
         cacp.stopContents();
+        initPlaying();
+    }
+
+    private void initPlaying()
+    {
         isPlaying = false;
         isPaused = false;
         playButton.setVisibility(View.VISIBLE);
@@ -341,6 +404,7 @@ public class PracticeAccentActivity extends AppCompatActivity implements OnMeasu
         currentTimeOffset = 0;
         lastPausedTimeOffset = 0;
     }
+
 
     @Override
     protected void onStop() {
