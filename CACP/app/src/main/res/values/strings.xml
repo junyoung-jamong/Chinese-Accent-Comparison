@@ -1,3 +1,11 @@
 <resources>
-    <string name="app_name">CACP</string>
+    <string name="app_name">중국어음성</string>
+    <string name="title_activity_navigation">NavigationActivity</string>
+    <string name="title_home">Home</string>
+    <string name="title_dashboard">History</string>
+    <string name="title_notifications">Settings</string>
+
+    <string name="title_activity_full_image">FullImageActivity</string>
+    <string name="dummy_button">Dummy Button</string>
+    <string name="dummy_content">DUMMY\nCONTENT</string>
 </resources>

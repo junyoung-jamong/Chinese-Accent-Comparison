@@ -8,6 +8,8 @@ import android.util.Log;
 
 import com.smartjackwp.junyoung.cacp.Database.CacpDBManager;
 import com.smartjackwp.junyoung.cacp.Entity.AccentContents;
+import com.smartjackwp.junyoung.cacp.Entity.History;
+import com.smartjackwp.junyoung.cacp.Interfaces.OnCapturedHistoryListener;
 import com.smartjackwp.junyoung.cacp.Utils.GridMatrix;
 import com.smartjackwp.junyoung.cacp.Utils.Similarity;
 import com.smartjackwp.junyoung.cacp.Utils.Normalization;
@@ -48,12 +50,15 @@ public class ChineseAccentComparison {
 
     private final int GRID_M = 8;
     private final int GRID_N = 10;
-    private final String tempFileName = "cacp_temp.wav";
+    private static final String tempFileName = "cacp_temp.wav";
+    private static final String CAPTURE_PATH = "/CACP_CAPTURE";
 
     private ArrayList<AccentContents> contentsList;
+    private ArrayList<History> historyList;
     private PLAYER_STATE playerState = PLAYER_STATE.NONE;
 
     OnMeasuredSimilarityListener onMeasuredSimilarityListener;
+    OnCapturedHistoryListener onCapturedHistoryListener;
 
     private ChineseAccentComparison(Context context){
         this.mContext = context;
@@ -81,6 +86,8 @@ public class ChineseAccentComparison {
                 2 * 1,
                 22050,
                 ByteOrder.BIG_ENDIAN.equals(ByteOrder.nativeOrder()));
+
+        initHistories();
     }
 
 
@@ -177,18 +184,19 @@ public class ChineseAccentComparison {
 
     public void measureSimilarity(AccentContents contents)
     {
-        final ArrayList<Float> playedPitchList = contents.getPlayedPitchList();
-        final ArrayList<Float> recordedPitchList = contents.getRecordedPitchList();
+        final ArrayList<Float> playedPitchList =(ArrayList<Float>)contents.getPlayedPitchList().clone();
+        final ArrayList<Float> recordedPitchList = (ArrayList<Float>)contents.getRecordedPitchList().clone();
         if(playedPitchList != null && recordedPitchList != null)
         {
             Thread thread = new Thread(new Runnable() {
                 @Override
                 public void run() {
+
                     final ArrayList<Float> normPlayedPitchList = Normalization.featureScaling(playedPitchList);
                     final ArrayList<Float> normRecordedPitchList = Normalization.featureScaling(recordedPitchList);
 
-                    GridMatrix playedGM = new GridMatrix(GRID_M, GRID_N, normPlayedPitchList);
-                    GridMatrix recordedGM = new GridMatrix(GRID_M, GRID_N, normRecordedPitchList);
+                    GridMatrix playedGM = new GridMatrix(GRID_M, GRID_N, trimTimeSeries((ArrayList<Float>)normPlayedPitchList.clone()));
+                    GridMatrix recordedGM = new GridMatrix(GRID_M, GRID_N, trimTimeSeries((ArrayList<Float>)normRecordedPitchList.clone()));
 
                     //double dist1 = Similarity.GMED(playedGM, recordedGM);
                     //double dist2 = Similarity.GMDTW(playedGM, recordedGM);
@@ -226,6 +234,41 @@ public class ChineseAccentComparison {
 
     public void setOnMeasuredSimilarityListener(OnMeasuredSimilarityListener listener){
         this.onMeasuredSimilarityListener = listener;
+    }
+
+    public void setOnCapturedHistoryListener(OnCapturedHistoryListener listener){
+        this.onCapturedHistoryListener = listener;
+    }
+
+    public ArrayList<History> getHistories(){
+       if(historyList == null)
+           initHistories();
+
+        return historyList;
+    }
+
+    public void addHistory(History history){
+        if(historyList != null){
+            historyList.add(0, history);
+            if(onCapturedHistoryListener != null){
+                onCapturedHistoryListener.onCaptured(history);
+            }
+        }
+    }
+
+    private void initHistories(){
+        String path = Environment.getExternalStorageDirectory() + CAPTURE_PATH;
+        File directory = new File(path);
+        historyList = new ArrayList<>();
+
+        if(directory.exists())
+        {
+            File[] files = directory.listFiles();
+
+            for(File f: files){
+                historyList.add(new History(f.getPath(), f.getName(), f.getAbsolutePath()));
+            }
+        }
     }
 
     private void initMicDispatcher(PitchDetectionHandler pdHandler)
@@ -308,5 +351,32 @@ public class ChineseAccentComparison {
                 dispatcher.stop();
             dispatcher = null;
         }
+    }
+
+    private ArrayList<Float> trimTimeSeries(ArrayList<Float> ts)
+    {
+        if(ts != null && ts.size() > 0)
+        {
+            for(int i=ts.size(); i>0; i--)
+            {
+                if(ts.get(i-1) > 0)
+                    break;
+                else
+                    ts.remove(i-1);
+
+            }
+
+            while(true && ts.size() > 0)
+            {
+                if(ts.get(0) > 0)
+                    break;
+                else
+                    ts.remove(0);
+            }
+            return ts;
+        }
+        else
+            return ts;
+
     }
 }

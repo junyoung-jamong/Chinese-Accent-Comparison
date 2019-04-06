@@ -1,10 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-        package="com.smartjackwp.junyoung.cacp">
+    package="com.smartjackwp.junyoung.cacp">
 
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+
     <protected-broadcast android:name="android.intent.action.MEDIA_MOUNTED" />
 
     <application
@@ -14,16 +15,24 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/AppTheme">
-        <activity android:name=".Activities.MainActivity">
+        <activity android:name=".Activities.MainActivity"></activity>
+        <activity android:name=".Activities.PracticeAccentActivity" />
+        <activity android:name=".Activities.AddSoundFileActivity" />
+        <activity android:name=".Activities.RecordActivity" />
+        <activity
+            android:name=".Activities.NavigationActivity"
+            android:label="@string/title_activity_navigation">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-        <activity android:name=".Activities.PracticeAccentActivity" />
-        <activity android:name=".Activities.AddSoundFileActivity" />
-        <activity android:name=".Activities.RecordActivity"></activity>
+        <activity
+            android:name=".Activities.FullImageActivity"
+            android:configChanges="orientation|keyboardHidden|screenSize"
+            android:label="@string/title_activity_full_image"
+            android:theme="@style/FullscreenTheme"></activity>
     </application>
 
 </manifest>

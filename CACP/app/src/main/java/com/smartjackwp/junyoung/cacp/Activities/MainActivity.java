@@ -20,7 +20,6 @@ import com.smartjackwp.junyoung.cacp.R;
 import java.util.ArrayList;
 
 public class MainActivity extends AppCompatActivity {
-    final int REQUEST_CODE_ADD_FILE = 1001;
     final String TAG = "MainActivity";
 
     Button addFileButton;
@@ -53,7 +52,7 @@ public class MainActivity extends AppCompatActivity {
         addFileButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                startActivityForResult(new Intent(MainActivity.this, AddSoundFileActivity.class), REQUEST_CODE_ADD_FILE);
+                startActivityForResult(new Intent(MainActivity.this, AddSoundFileActivity.class), NavigationActivity.REQUEST_CODE_ADD_FILE);
             }
         });
 
@@ -94,13 +93,5 @@ public class MainActivity extends AppCompatActivity {
                 return true;
             }
         });
-    }
-
-    @Override
-    protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
-        super.onActivityResult(requestCode, resultCode, data);
-        Log.e(TAG, "onActivityResult 호출 - requestCode: " + requestCode + ", resultCode: " + resultCode);
-
-        contentsAdapter.notifyDataSetChanged();
     }
 }

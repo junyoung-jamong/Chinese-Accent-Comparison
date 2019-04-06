@@ -19,7 +19,9 @@ import com.jjoe64.graphview.GraphView;
 import com.jjoe64.graphview.series.DataPoint;
 import com.jjoe64.graphview.series.LineGraphSeries;
 import com.smartjackwp.junyoung.cacp.ChineseAccentComparison;
+import com.smartjackwp.junyoung.cacp.Constants;
 import com.smartjackwp.junyoung.cacp.Entity.AccentContents;
+import com.smartjackwp.junyoung.cacp.Entity.History;
 import com.smartjackwp.junyoung.cacp.Entity.Subtitle;
 import com.smartjackwp.junyoung.cacp.Entity.SubtitleUnit;
 import com.smartjackwp.junyoung.cacp.R;
@@ -79,7 +81,7 @@ public class PracticeAccentActivity extends AppCompatActivity implements OnMeasu
     private static final String CAPTURE_PATH = "/CACP_CAPTURE";
 
     final int RECORDED_COLOR = Color.rgb(0xF1,0x70,0x68);
-    final int THICKNESS = 15;
+    final int THICKNESS = 25;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -121,6 +123,7 @@ public class PracticeAccentActivity extends AppCompatActivity implements OnMeasu
 
         for(int i=0; i<playedPitch.size(); i++)
         {
+            Log.e("onMeasured-playedPitch", " " + playedPitch.get(i));
             if(playedPitch.get(i) > 0)
             {
                 if(playedPitchSeries == null)
@@ -129,7 +132,7 @@ public class PracticeAccentActivity extends AppCompatActivity implements OnMeasu
                     playedPitchSeries.setThickness(THICKNESS);
                     similarityGraph.addSeries(playedPitchSeries);
                 }
-                playedPitchSeries.appendData(new DataPoint(i+1, playedPitch.get(i)), false, playedPitch.size());
+                playedPitchSeries.appendData(new DataPoint(i+1, playedPitch.get(i)), false, max);
             }
             else
             {
@@ -139,6 +142,7 @@ public class PracticeAccentActivity extends AppCompatActivity implements OnMeasu
 
         for(int i=0; i<recordedPitch.size(); i++)
         {
+            Log.e("onMeasured-recordPitch", " " + recordedPitch.get(i));
             if(recordedPitch.get(i) > 0)
             {
                 if(recordedPitchSeries == null)
@@ -148,7 +152,7 @@ public class PracticeAccentActivity extends AppCompatActivity implements OnMeasu
                     recordedPitchSeries.setThickness(THICKNESS);
                     similarityGraph.addSeries(recordedPitchSeries);
                 }
-                recordedPitchSeries.appendData(new DataPoint(i+1, recordedPitch.get(i)), false, playedPitch.size());
+                recordedPitchSeries.appendData(new DataPoint(i+1, recordedPitch.get(i)), false, max);
             }
             else
             {
@@ -181,7 +185,9 @@ public class PracticeAccentActivity extends AppCompatActivity implements OnMeasu
         contentsPitchGraph = findViewById(R.id.contentsPitchGraph);
         similarityGraph = findViewById(R.id.similarityGraph);
 
-        titleTextView.setText(contents.getTitle());
+        File file = new File(contents.getFilePath());
+        if(file.exists())
+            titleTextView.setText(file.getName() + " - " + contents.getTitle());
         durationTextView.setText(Tools.getTimeFormat(Math.ceil(contents.getDuration())));
 
         initSubtitle();
@@ -276,9 +282,11 @@ public class PracticeAccentActivity extends AppCompatActivity implements OnMeasu
     }
 
     private void processPitch(float pitchInHz, long timeStamp){
+        Log.e("processPitch", "pitchlnHz: " + pitchInHz);
+
         if(!isPaused)
         {
-            if (pitchInHz < 0)
+            if (pitchInHz < Constants.THRESHOLD_PITCH_MINIMUM || pitchInHz > Constants.THRESHOLD_PITCH_MAXIMUM)
                 pitchInHz = 0;
 
             playedPitchList.add(pitchInHz);
@@ -296,6 +304,10 @@ public class PracticeAccentActivity extends AppCompatActivity implements OnMeasu
     private void drawPitchGraph(float pitchInHz)
     {
         graphLastXValue += 1d;
+
+        if (pitchInHz < Constants.THRESHOLD_PITCH_MINIMUM || pitchInHz > Constants.THRESHOLD_PITCH_MAXIMUM)
+            pitchInHz = 0;
+
         if(pitchInHz > 0)
         {
             if(toneSeries == null)
@@ -441,7 +453,8 @@ public class PracticeAccentActivity extends AppCompatActivity implements OnMeasu
             folder.mkdirs();
         }
 
-        String strFilePath = strFolderPath + "/" + System.currentTimeMillis() + ".png";
+        String fileName = contents.getTitle() + "_" + System.currentTimeMillis() + ".png";
+        String strFilePath = strFolderPath + "/" + fileName;
         File fileCacheItem = new File(strFilePath);
         OutputStream out = null;
         try {
@@ -457,6 +470,8 @@ public class PracticeAccentActivity extends AppCompatActivity implements OnMeasu
             } else {
                 sendBroadcast(new Intent(Intent.ACTION_MEDIA_MOUNTED, Uri.parse("file://" + Environment.getExternalStorageDirectory())));
             }
+
+            cacp.addHistory(new History(strFilePath, fileName, strFilePath));
             return true;
         }
         catch (Exception e) {
