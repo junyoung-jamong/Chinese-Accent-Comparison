@@ -1,11 +1,19 @@
 package com.smartjackwp.junyoung.cacp.Activities;
 
+import android.Manifest;
+import android.app.ProgressDialog;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.Color;
 import android.net.Uri;
+import android.os.AsyncTask;
 import android.os.Build;
 import android.os.Environment;
+import android.support.annotation.NonNull;
+import android.support.design.widget.Snackbar;
+import android.support.v4.app.ActivityCompat;
+import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Log;
@@ -39,7 +47,7 @@ import be.tarsos.dsp.AudioEvent;
 import be.tarsos.dsp.pitch.PitchDetectionHandler;
 import be.tarsos.dsp.pitch.PitchDetectionResult;
 
-public class PracticeAccentActivity extends AppCompatActivity implements OnMeasuredSimilarityListener {
+public class PracticeAccentActivity extends AppCompatActivity implements OnMeasuredSimilarityListener, ActivityCompat.OnRequestPermissionsResultCallback{
     ImageButton playButton;
     ImageButton pauseButton;
     ImageButton recordButton;
@@ -57,7 +65,9 @@ public class PracticeAccentActivity extends AppCompatActivity implements OnMeasu
 
     GraphView contentsPitchGraph;
     GraphView similarityGraph;
-    private LineGraphSeries<DataPoint> contentsPitchSeries;
+    private LineGraphSeries<DataPoint> contentToneGraphSeries;
+    private LineGraphSeries<DataPoint> contentFlowGraphSeries;
+
     private LineGraphSeries<DataPoint> flowSeries;
     private LineGraphSeries<DataPoint> toneSeries;
     private double graphLastXValue = 1d;
@@ -78,10 +88,16 @@ public class PracticeAccentActivity extends AppCompatActivity implements OnMeasu
 
     ArrayList<Float> playedPitchList = new ArrayList<>();
 
-    private static final String CAPTURE_PATH = "/CACP_CAPTURE";
-
+    final int PLAYED_COLOR = Color.rgb(0x26, 0xc5, 0xcd);
     final int RECORDED_COLOR = Color.rgb(0xF1,0x70,0x68);
     final int THICKNESS = 25;
+    final int GRAPH_X_LENGTH = 100;
+    final int PRE_SHOW = 30;
+
+    String[] REQUIRED_PERMISSIONS  = {Manifest.permission.RECORD_AUDIO, // 카메라
+            Manifest.permission.WRITE_EXTERNAL_STORAGE};
+
+    final int PERMISSIONS_REQUEST_CODE = 2001;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -99,6 +115,8 @@ public class PracticeAccentActivity extends AppCompatActivity implements OnMeasu
             this.subtitle = contents.getSubtitle();
             initUI();
             cacp.setOnMeasuredSimilarityListener(this);
+
+            new ContentPitchLoadingTask().execute();
         }
     }
 
@@ -199,19 +217,18 @@ public class PracticeAccentActivity extends AppCompatActivity implements OnMeasu
         similarityGraph.getGridLabelRenderer().setHorizontalLabelsVisible(false);
         similarityGraph.getGridLabelRenderer().setVerticalLabelsVisible(false);
 
-        contentsPitchSeries = new LineGraphSeries<>();
+        contentFlowGraphSeries = new LineGraphSeries<>();
+        contentFlowGraphSeries.setColor(Color.TRANSPARENT);
 
         flowSeries = new LineGraphSeries<>();
         flowSeries.setColor(Color.TRANSPARENT);
 
+        contentsPitchGraph.addSeries(contentFlowGraphSeries);
         contentsPitchGraph.addSeries(flowSeries);
+
         contentsPitchGraph.getGridLabelRenderer().setHorizontalLabelsVisible(false);
         contentsPitchGraph.getGridLabelRenderer().setVerticalLabelsVisible(false);
         contentsPitchGraph.getViewport().setXAxisBoundsManual(true);
-        contentsPitchGraph.getViewport().setMinX(0);
-        contentsPitchGraph.getViewport().setMaxX(100);
-        contentsPitchGraph.getViewport().setMinY(-1);
-        contentsPitchGraph.getViewport().setMaxY(300);
 
         pdHandler = new PitchDetectionHandler() {
             @Override
@@ -251,6 +268,10 @@ public class PracticeAccentActivity extends AppCompatActivity implements OnMeasu
         recordButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
+
+                if(!checkMicPermission())
+                    return;
+
                 if(playedPitchList.size() > 0)
                 {
                     pause();
@@ -282,8 +303,6 @@ public class PracticeAccentActivity extends AppCompatActivity implements OnMeasu
     }
 
     private void processPitch(float pitchInHz, long timeStamp){
-        Log.e("processPitch", "pitchlnHz: " + pitchInHz);
-
         if(!isPaused)
         {
             if (pitchInHz < Constants.THRESHOLD_PITCH_MINIMUM || pitchInHz > Constants.THRESHOLD_PITCH_MAXIMUM)
@@ -301,6 +320,38 @@ public class PracticeAccentActivity extends AppCompatActivity implements OnMeasu
         }
     }
 
+    private void initPitchGraph(ArrayList<Float> pitchList){
+        for(int i=0; i<pitchList.size(); i++)
+        {
+            float pitchInHz = pitchList.get(i);
+
+            if (pitchInHz < Constants.THRESHOLD_PITCH_MINIMUM || pitchInHz > Constants.THRESHOLD_PITCH_MAXIMUM)
+                pitchInHz = 0;
+
+            if(pitchInHz > 0)
+            {
+                if(contentToneGraphSeries == null)
+                {
+                    contentToneGraphSeries = new LineGraphSeries<>();
+                    contentToneGraphSeries.setThickness(THICKNESS);
+                    contentToneGraphSeries.setColor(PLAYED_COLOR);
+                    contentsPitchGraph.addSeries(contentToneGraphSeries);
+                }
+                contentToneGraphSeries.appendData(new DataPoint(i+1, pitchInHz), false, 300);
+            }
+            else
+            {
+                contentToneGraphSeries = null;
+                contentFlowGraphSeries.appendData(new DataPoint(i+1, pitchInHz), false, 300);
+            }
+        }
+
+        contentsPitchGraph.getViewport().setMinX(0);
+        contentsPitchGraph.getViewport().setMaxX(100);
+        contentsPitchGraph.getViewport().setMinY(0);
+        contentsPitchGraph.getViewport().setMaxY(300);
+    }
+
     private void drawPitchGraph(float pitchInHz)
     {
         graphLastXValue += 1d;
@@ -316,13 +367,18 @@ public class PracticeAccentActivity extends AppCompatActivity implements OnMeasu
                 toneSeries.setThickness(THICKNESS);
                 contentsPitchGraph.addSeries(toneSeries);
             }
-            contentsPitchSeries.appendData(new DataPoint(graphLastXValue, pitchInHz), true, 300);
-            toneSeries.appendData(new DataPoint(graphLastXValue, pitchInHz), true, 300);
+            toneSeries.appendData(new DataPoint(graphLastXValue, pitchInHz), false, 300);
         }
         else
         {
             toneSeries = null;
-            flowSeries.appendData(new DataPoint(graphLastXValue, pitchInHz), true, 300);
+            flowSeries.appendData(new DataPoint(graphLastXValue, pitchInHz), false, 300);
+        }
+
+        if(graphLastXValue > GRAPH_X_LENGTH-PRE_SHOW)
+        {
+            contentsPitchGraph.getViewport().setMinX(graphLastXValue-GRAPH_X_LENGTH+PRE_SHOW);
+            contentsPitchGraph.getViewport().setMaxX(graphLastXValue+PRE_SHOW);
         }
     }
 
@@ -373,6 +429,8 @@ public class PracticeAccentActivity extends AppCompatActivity implements OnMeasu
         playButton.setVisibility(View.INVISIBLE);
         pauseButton.setVisibility(View.VISIBLE);
 
+        graphLastXValue = 0d;
+        flowSeries.resetData(new DataPoint[]{});
         initSubtitle();
     }
 
@@ -436,6 +494,17 @@ public class PracticeAccentActivity extends AppCompatActivity implements OnMeasu
         cacp.finishContents();
     }
 
+    private boolean checkMicPermission(){
+        int recordPermission = ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO);
+
+        if(recordPermission == PackageManager.PERMISSION_GRANTED)
+            return true;
+        else {
+            ActivityCompat.requestPermissions( this, REQUIRED_PERMISSIONS, PERMISSIONS_REQUEST_CODE);
+            return false;
+        }
+    }
+
     private boolean capture()
     {
         View root = this.getWindow().getDecorView().getRootView();
@@ -447,7 +516,7 @@ public class PracticeAccentActivity extends AppCompatActivity implements OnMeasu
         root.getLocationInWindow(location);
 
         Bitmap bmp = Bitmap.createBitmap(screenshot, location[0], location[1], root.getWidth(), root.getHeight(), null, false);
-        String strFolderPath = Environment.getExternalStorageDirectory() + CAPTURE_PATH;
+        String strFolderPath = Environment.getExternalStorageDirectory() + ChineseAccentComparison.CAPTURE_PATH;
         File folder = new File(strFolderPath);
         if(!folder.exists()) {
             folder.mkdirs();
@@ -486,5 +555,50 @@ public class PracticeAccentActivity extends AppCompatActivity implements OnMeasu
             }
         }
         return false;
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+
+        boolean check_result = true;
+        if(requestCode == PERMISSIONS_REQUEST_CODE){
+            for (int result : grantResults) {
+                if (result != PackageManager.PERMISSION_GRANTED) {
+                    check_result = false;
+                    break;
+                }
+            }
+            if(check_result) ;
+        }
+    }
+
+    class ContentPitchLoadingTask extends AsyncTask<Void, Void, ArrayList<Float>>{
+        ProgressDialog dialog;
+
+        @Override
+        protected void onPreExecute() {
+            super.onPreExecute();
+            dialog = new ProgressDialog(PracticeAccentActivity.this);
+            dialog.setProgressStyle(ProgressDialog.STYLE_SPINNER);
+            dialog.setMessage("데이터 로딩중...");
+            dialog.show();
+        }
+
+        @Override
+        protected ArrayList<Float> doInBackground(Void... voids){
+            ArrayList<Float> pitchList = cacp.getContentPitchList(contents.getFilePath());
+            return pitchList;
+        }
+
+        @Override
+        protected void onPostExecute(ArrayList<Float> pitchList) {
+            super.onPostExecute(pitchList);
+
+            initPitchGraph(pitchList);
+
+            if(dialog != null && dialog.isShowing())
+                dialog.dismiss();
+        }
     }
 }

@@ -30,7 +30,7 @@ public class AddSoundFileActivity extends AppCompatActivity {
 
     ChineseAccentComparison cacp;
 
-    final String[] formats = {".mp3", ".wav", ".flac", ".wma", ".ogg"};
+    final String[] formats = {".mp3", ".wav"};
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -45,8 +45,8 @@ public class AddSoundFileActivity extends AppCompatActivity {
         titleEditText = findViewById(R.id.titleEditText);
         descriptionEditText = findViewById(R.id.descriptionEditText);
 
-        File mPath = new File(Environment.getExternalStorageDirectory() + "//");
-        fileDialog = new FileDialog(AddSoundFileActivity.this, mPath);
+        File mPath = Environment.getExternalStorageDirectory();
+        fileDialog = new FileDialog(AddSoundFileActivity.this, mPath, formats);
         fileDialog.addFileListener(new FileDialog.FileSelectedListener() {
             public void fileSelected(File file) {
                 if(checkFormat(file.toString()))
@@ -75,6 +75,9 @@ public class AddSoundFileActivity extends AppCompatActivity {
                 {
                     String title = titleEditText.getText().toString();
                     String description = descriptionEditText.getText().toString();
+                    if(title.length() <= 0)
+                        title = new File(filePath).getName();
+
                     int id = cacp.saveContents(new AccentContents(filePath, title, description));
 
                     if(id > -1)
@@ -97,6 +100,7 @@ public class AddSoundFileActivity extends AppCompatActivity {
             Toast.makeText(this, "파일을 선택하세요.", Toast.LENGTH_SHORT).show();
             return false;
         }
+        /*
         else if(title.length() <= 0)
         {
             Toast.makeText(this, "제목을 입력하세요.", Toast.LENGTH_SHORT).show();
@@ -107,6 +111,7 @@ public class AddSoundFileActivity extends AppCompatActivity {
             Toast.makeText(this, "설명을 입력하세요.", Toast.LENGTH_SHORT).show();
             return false;
         }
+        */
 
         return true;
     }

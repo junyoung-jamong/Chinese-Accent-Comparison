@@ -46,7 +46,6 @@ public class GridMatrix {
             else
                 j = (int)(t/width);
 
-
             matrix[i][j]++;
         }
     }

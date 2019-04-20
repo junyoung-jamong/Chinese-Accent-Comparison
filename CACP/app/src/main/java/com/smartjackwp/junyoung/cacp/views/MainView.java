@@ -78,7 +78,7 @@ public class MainView extends LinearLayout {
             @Override
             public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
                 Intent intent = new Intent(mContext, PracticeAccentActivity.class);
-                AccentContents contents = (AccentContents)contentsAdapter.getItem(position);
+                AccentContents contents = contentsList.get(position);
                 intent.putExtra(AccentContents._ID, contents.getId());
                 mContext.startActivity(intent);
             }

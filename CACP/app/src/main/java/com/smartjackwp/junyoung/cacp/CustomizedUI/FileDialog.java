@@ -10,7 +10,9 @@ import android.util.Log;
 import java.io.File;
 import java.io.FilenameFilter;
 import java.util.ArrayList;
+import java.util.LinkedList;
 import java.util.List;
+import java.util.Queue;
 
 public class FileDialog {
     private static final String PARENT_DIR = "..";
@@ -27,7 +29,8 @@ public class FileDialog {
     private ListenerList<DirectorySelectedListener> dirListenerList = new ListenerList<FileDialog.DirectorySelectedListener>();
     private final Activity activity;
     private boolean selectDirectoryOption;
-    private String fileEndsWith;
+    private String[] fileEndsWith;
+    private File initPath;
 
     /**
      * @param activity
@@ -37,10 +40,11 @@ public class FileDialog {
         this(activity, initialPath, null);
     }
 
-    public FileDialog(Activity activity, File initialPath, String fileEndsWith) {
+    public FileDialog(Activity activity, File initialPath, String[] fileEndsWith) {
         this.activity = activity;
-        setFileEndsWith(fileEndsWith);
+        this.fileEndsWith = fileEndsWith;
         if (!initialPath.exists()) initialPath = Environment.getExternalStorageDirectory();
+        initPath = initialPath;
         loadFileList(initialPath);
     }
 
@@ -124,17 +128,20 @@ public class FileDialog {
 
     private void loadFileList(File path) {
         this.currentPath = path;
-        List<String> r = new ArrayList<String>();
+        List<String> r = new ArrayList<>();
         if (path.exists()) {
-            if (path.getParentFile() != null) r.add(PARENT_DIR);
+            if (path.getParentFile() != null && !path.getAbsolutePath().equals(initPath.getAbsolutePath())) r.add(PARENT_DIR);
+
             FilenameFilter filter = new FilenameFilter() {
                 public boolean accept(File dir, String filename) {
                     File sel = new File(dir, filename);
                     if (!sel.canRead()) return false;
-                    if (selectDirectoryOption) return sel.isDirectory();
+                    if (selectDirectoryOption) return sel.isDirectory() && containsSoundFile(sel);
                     else {
-                        boolean endsWith = fileEndsWith != null ? filename.toLowerCase().endsWith(fileEndsWith) : true;
-                        return endsWith || sel.isDirectory();
+                        for(String format: fileEndsWith)
+                            if(filename.toLowerCase().endsWith(format))
+                                return true;
+                        return containsSoundFile(sel) || false;
                     }
                 }
             };
@@ -146,6 +153,28 @@ public class FileDialog {
         fileList = (String[]) r.toArray(new String[]{});
 
         //getFilesList(path);
+    }
+
+    private boolean containsSoundFile(File dir){
+        Queue<File> dirQueue = new LinkedList<>();
+        if(dir.isDirectory()){
+           dirQueue.add(dir);
+
+           while(!dirQueue.isEmpty()) {
+               File currentDIR = dirQueue.remove();
+               File[] fileList = currentDIR.listFiles();
+               for(File f: fileList){
+                   if(f.isDirectory())
+                       dirQueue.add(f);
+                   else {
+                       for(String format: fileEndsWith)
+                            if(f.getName().toLowerCase().endsWith(format))
+                                return true;
+                   }
+               }
+           }
+        }
+        return false;
     }
 
     public void getFilesList(File path) {
@@ -165,10 +194,6 @@ public class FileDialog {
     private File getChosenFile(String fileChosen) {
         if (fileChosen.equals(PARENT_DIR)) return currentPath.getParentFile();
         else return new File(currentPath, fileChosen);
-    }
-
-    private void setFileEndsWith(String fileEndsWith) {
-        this.fileEndsWith = fileEndsWith != null ? fileEndsWith.toLowerCase() : fileEndsWith;
     }
 }
 

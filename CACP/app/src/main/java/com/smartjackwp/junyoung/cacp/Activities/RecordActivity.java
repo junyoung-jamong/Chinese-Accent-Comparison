@@ -4,7 +4,6 @@ import android.content.Intent;
 import android.graphics.Color;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
-import android.util.Log;
 import android.view.View;
 import android.widget.ImageButton;
 import android.widget.TextView;
@@ -57,6 +56,7 @@ public class RecordActivity extends AppCompatActivity {
     int currentSubtitleIndex;
 
     final int GRAPH_X_LENGTH = 100;
+    final int PRE_SHOW = 30;
 
     final int BACKGROUND_COLOR = Color.rgb(0x3f, 0x53, 0x6e);
     final int PLAYED_COLOR = Color.rgb(0x26, 0xc5, 0xcd);
@@ -104,7 +104,7 @@ public class RecordActivity extends AppCompatActivity {
 
         playedPitchList = contents.getPlayedPitchList();
         playedPitchListSize = playedPitchList.size();
-        maximumSize = playedPitchListSize+5;
+        maximumSize = playedPitchListSize;
 
         playedFlowGraphSeries = new LineGraphSeries<>();
         playedFlowGraphSeries.setColor(Color.TRANSPARENT);
@@ -189,8 +189,6 @@ public class RecordActivity extends AppCompatActivity {
     }
 
     private void processPitch(float pitchInHz, long timeStamp){
-        Log.e("processPitch", "pitchlnHz: " + pitchInHz);
-
         if (pitchInHz < Constants.THRESHOLD_PITCH_MINIMUM || pitchInHz > Constants.THRESHOLD_PITCH_MAXIMUM)
             pitchInHz = 0;
 
@@ -212,10 +210,10 @@ public class RecordActivity extends AppCompatActivity {
             recordingGraphSeries = null;
         recordingFlowGraphSeries.appendData(new DataPoint(graphLastXValue, 0), false, 300);
 
-        if(graphLastXValue > GRAPH_X_LENGTH)
+        if(graphLastXValue > GRAPH_X_LENGTH-PRE_SHOW)
         {
-            recordingGraphView.getViewport().setMinX(graphLastXValue-GRAPH_X_LENGTH);
-            recordingGraphView.getViewport().setMaxX(graphLastXValue);
+            recordingGraphView.getViewport().setMinX(graphLastXValue-GRAPH_X_LENGTH+PRE_SHOW);
+            recordingGraphView.getViewport().setMaxX(graphLastXValue+PRE_SHOW);
         }
 
         if(graphLastXValue > maximumSize)

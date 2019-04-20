@@ -22,6 +22,7 @@ import java.util.ArrayList;
 
 import com.smartjackwp.junyoung.cacp.Interfaces.OnMeasuredSimilarityListener;
 import be.tarsos.dsp.AudioDispatcher;
+import be.tarsos.dsp.AudioEvent;
 import be.tarsos.dsp.AudioProcessor;
 import be.tarsos.dsp.io.PipedAudioStream;
 import be.tarsos.dsp.io.TarsosDSPAudioFormat;
@@ -30,6 +31,7 @@ import be.tarsos.dsp.io.android.AndroidAudioPlayer;
 import be.tarsos.dsp.io.android.AndroidFFMPEGLocator;
 import be.tarsos.dsp.io.android.AudioDispatcherFactory;
 import be.tarsos.dsp.pitch.PitchDetectionHandler;
+import be.tarsos.dsp.pitch.PitchDetectionResult;
 import be.tarsos.dsp.pitch.PitchProcessor;
 import be.tarsos.dsp.writer.WriterProcessor;
 
@@ -49,9 +51,9 @@ public class ChineseAccentComparison {
     Handler handler;
 
     private final int GRID_M = 8;
-    private final int GRID_N = 10;
+    private final int GRID_N = 8;
     private static final String tempFileName = "cacp_temp.wav";
-    private static final String CAPTURE_PATH = "/CACP_CAPTURE";
+    public static final String CAPTURE_PATH = "/[ToneViewer]";
 
     private ArrayList<AccentContents> contentsList;
     private ArrayList<History> historyList;
@@ -101,9 +103,10 @@ public class ChineseAccentComparison {
     }
 
     public AccentContents findContentsById(int id){
-        for(int i=0; i<contentsList.size(); i++)
-            if(contentsList.get(i).getId() == id)
-                return contentsList.get(i);
+        if(contentsList != null)
+            for(int i=0; i<contentsList.size(); i++)
+                if(contentsList.get(i).getId() == id)
+                    return contentsList.get(i);
 
         return null;
     }
@@ -128,6 +131,36 @@ public class ChineseAccentComparison {
     }
 
     //Contents 이용관련
+    public ArrayList<Float> getContentPitchList(String filePath){
+        final ArrayList<Float> pitchList = new ArrayList<>();
+
+        initFilePitchDispatcher(filePath, new PitchDetectionHandler() {
+            @Override
+            public void handlePitch(PitchDetectionResult res, AudioEvent audioEvent) {
+                float pitchInHz = res.getPitch();
+                if (pitchInHz < Constants.THRESHOLD_PITCH_MINIMUM || pitchInHz > Constants.THRESHOLD_PITCH_MAXIMUM)
+                    pitchInHz = 0;
+
+                pitchList.add(pitchInHz);
+            }
+        });
+
+        if(dispatcher != null){
+            audioThread = new Thread(dispatcher, "Content_Pitch_Thread");
+            audioThread.start();
+            try{
+                audioThread.join();
+                return pitchList;
+            }catch(Exception e){
+                e.printStackTrace();
+                return null;
+            }
+        }
+        else{
+            return null;
+        }
+    }
+
     public void playContents(String filePath, PitchDetectionHandler pdHandler)
     {
         playerState = PLAYER_STATE.PLAY;
@@ -195,19 +228,28 @@ public class ChineseAccentComparison {
                     final ArrayList<Float> normPlayedPitchList = Normalization.featureScaling(playedPitchList);
                     final ArrayList<Float> normRecordedPitchList = Normalization.featureScaling(recordedPitchList);
 
-                    GridMatrix playedGM = new GridMatrix(GRID_M, GRID_N, trimTimeSeries((ArrayList<Float>)normPlayedPitchList.clone()));
-                    GridMatrix recordedGM = new GridMatrix(GRID_M, GRID_N, trimTimeSeries((ArrayList<Float>)normRecordedPitchList.clone()));
+                    if(!hasPitch(recordedPitchList))
+                    {
+                        onMeasuredSimilarityListener.onMeasured(0, normPlayedPitchList, normRecordedPitchList);
+                        return;
+                    }
+
+                    //GridMatrix playedGM = new GridMatrix(GRID_M, GRID_N, trimTimeSeries((ArrayList<Float>)normPlayedPitchList.clone()));
+                    //GridMatrix recordedGM = new GridMatrix(GRID_M, GRID_N, trimTimeSeries((ArrayList<Float>)normRecordedPitchList.clone()));
+
+                    GridMatrix playedGM = new GridMatrix(GRID_M, GRID_N, normPlayedPitchList);
+                    GridMatrix recordedGM = new GridMatrix(GRID_M, GRID_N, normRecordedPitchList);
 
                     //double dist1 = Similarity.GMED(playedGM, recordedGM);
-                    //double dist2 = Similarity.GMDTW(playedGM, recordedGM);
+                    //double dist = Similarity.GMDTW(playedGM, recordedGM);
                     //double dist = (dist1+dist2)/2;
-                    //dist = dist/normPlayedPitchList.size();
-                    //final double sim = 100/(1+dist);
+                    //dist = dist/((normPlayedPitchList.size()+normRecordedPitchList.size())/2);
+                    //double sim = 100/(1+dist);
 
                     double sim= 100*Similarity.JACCARD_SIM(playedGM, recordedGM);
 
-                    if(sim > 70)
-                        sim += 10*(sim/100);
+                    if(sim > 40)
+                        sim += 20*(sim/100);
                     sim = Math.min(sim, 100);
 
                     final double score = sim;
@@ -225,6 +267,16 @@ public class ChineseAccentComparison {
             });
             thread.run();
         }
+    }
+
+    private boolean hasPitch(ArrayList<Float> ts){
+        boolean hasPitch = false;
+
+        for(Float v: ts)
+            if(v > 0)
+                return true;
+
+        return hasPitch;
     }
 
     public void finishContents()
@@ -286,6 +338,21 @@ public class ChineseAccentComparison {
             dispatcher.addAudioProcessor(pitchProcessor);
 
         } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void initFilePitchDispatcher(String filePath, PitchDetectionHandler pdHandler)
+    {
+        try{
+            releaseDispatcher();
+            new AndroidFFMPEGLocator(mContext);
+            dispatcher = AudioDispatcherFactory.fromPipe(filePath, 22050, 1024, 0);
+
+            pitchProcessor = new PitchProcessor(PitchProcessor.PitchEstimationAlgorithm.FFT_YIN, 22050, 1024, pdHandler);
+            dispatcher.addAudioProcessor(pitchProcessor);
+        }catch(Exception e)
+        {
             e.printStackTrace();
         }
     }

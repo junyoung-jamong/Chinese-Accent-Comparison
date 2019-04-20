@@ -1,10 +1,14 @@
 package com.smartjackwp.junyoung.cacp.Activities;
 
+import android.Manifest;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.design.widget.BottomNavigationView;
+import android.support.v4.app.ActivityCompat;
+import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.view.MenuItem;
 import android.view.View;
@@ -16,8 +20,9 @@ import com.smartjackwp.junyoung.cacp.views.HistoryView;
 import com.smartjackwp.junyoung.cacp.views.MainView;
 import com.smartjackwp.junyoung.cacp.views.SettingView;
 
-public class NavigationActivity extends AppCompatActivity implements BottomNavigationView.OnNavigationItemSelectedListener {
+public class NavigationActivity extends AppCompatActivity implements BottomNavigationView.OnNavigationItemSelectedListener, ActivityCompat.OnRequestPermissionsResultCallback {
     public static final int REQUEST_CODE_ADD_FILE = 1001;
+    final int PERMISSIONS_REQUEST_READ_EXTERNAL_STORAGE_CODE = 1501;
 
     ChineseAccentComparison cacp;
 
@@ -33,6 +38,13 @@ public class NavigationActivity extends AppCompatActivity implements BottomNavig
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_navigation);
 
+        if(!checkMicPermission())
+            return;
+
+        init();
+    }
+
+    private void init(){
         BottomNavigationView navigation = findViewById(R.id.navigation);
         navigation.setOnNavigationItemSelectedListener(this);
 
@@ -45,6 +57,17 @@ public class NavigationActivity extends AppCompatActivity implements BottomNavig
         settingView = new SettingView(this);
 
         setView(mainView);
+    }
+
+    private boolean checkMicPermission(){
+        int recordPermission = ContextCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE);
+
+        if(recordPermission == PackageManager.PERMISSION_GRANTED)
+            return true;
+        else {
+            ActivityCompat.requestPermissions( this, new String[]{Manifest.permission.READ_EXTERNAL_STORAGE}, PERMISSIONS_REQUEST_READ_EXTERNAL_STORAGE_CODE);
+            return false;
+        }
     }
 
     @Override
@@ -81,6 +104,25 @@ public class NavigationActivity extends AppCompatActivity implements BottomNavig
 
         currentView = v;
         contentLayout.addView(v);
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+
+        boolean check_result = true;
+        if(requestCode == PERMISSIONS_REQUEST_READ_EXTERNAL_STORAGE_CODE){
+            for (int result : grantResults) {
+                if (result != PackageManager.PERMISSION_GRANTED) {
+                    check_result = false;
+                    break;
+                }
+            }
+            if(check_result)
+                init();
+            else
+                finish();
+        }
     }
 
 }

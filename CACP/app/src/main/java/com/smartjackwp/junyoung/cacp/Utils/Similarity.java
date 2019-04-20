@@ -13,9 +13,9 @@ public class Similarity {
         {
             for(int j=0; j<matrix1[i].length; j++)
             {
-                if(matrix1[i][j] > 0 || matrix2[i][j] > 0)
+                if((matrix1[i][j] > 0 || matrix2[i][j] > 0) && j != matrix1[i].length-1)
                    union++;
-                if(matrix1[i][j] > 0 && matrix2[i][j] > 0)
+                if(matrix1[i][j] > 0 && matrix2[i][j] > 0 && j != matrix1[i].length-1)
                    intersection++;
             }
         }
