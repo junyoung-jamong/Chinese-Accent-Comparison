@@ -7,6 +7,7 @@
     <FrameLayout
         android:layout_width="match_parent"
         android:layout_height="56dp"
+        android:background="@color/colorRed"
         android:elevation="3dp">
 
         <TextView
@@ -15,6 +16,7 @@
             android:layout_height="wrap_content"
             android:layout_gravity="center"
             android:text="히스토리"
+            android:textColor="@color/colorPrimary"
             android:textSize="18sp"
             android:textStyle="bold" />
     </FrameLayout>

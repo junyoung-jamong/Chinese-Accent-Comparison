@@ -2,6 +2,7 @@ package com.smartjackwp.junyoung.cacp;
 
 import android.content.Context;
 import android.media.AudioManager;
+import android.net.Uri;
 import android.os.Environment;
 import android.os.Handler;
 import android.util.Log;
@@ -10,6 +11,7 @@ import com.smartjackwp.junyoung.cacp.Database.CacpDBManager;
 import com.smartjackwp.junyoung.cacp.Entity.AccentContents;
 import com.smartjackwp.junyoung.cacp.Entity.History;
 import com.smartjackwp.junyoung.cacp.Interfaces.OnCapturedHistoryListener;
+import com.smartjackwp.junyoung.cacp.Utils.AssetUtils;
 import com.smartjackwp.junyoung.cacp.Utils.GridMatrix;
 import com.smartjackwp.junyoung.cacp.Utils.Similarity;
 import com.smartjackwp.junyoung.cacp.Utils.Normalization;
@@ -90,15 +92,37 @@ public class ChineseAccentComparison {
                 ByteOrder.BIG_ENDIAN.equals(ByteOrder.nativeOrder()));
 
         initHistories();
+        loadContentList();
+    }
+
+    private void loadContentList(){
+        if(contentsList == null)
+            contentsList = cacpDB.getDAO().selectContents();
+    }
+
+    public void setInitialSoundFile(){
+        if(contentsList != null && contentsList.size() == 0)
+        {
+            try{
+                AssetUtils.copyAssets(mContext);
+
+                String dir = mContext.getExternalFilesDir(null).getPath();
+                Log.e("dir : ",dir);
+
+                saveContents(new AccentContents(dir + "/ma1ma2ma3ma4.wav", "ma1ma2ma3ma4.wav", ""));
+                saveContents(new AccentContents(dir + "/ma1ma2ma3ma4.srt", "ma1ma2ma3ma4.srt", ""));
+
+            }catch(Exception e)
+            {
+                e.printStackTrace();
+            }
+        }
     }
 
 
     //Contents CRUD 관련
     public ArrayList<AccentContents> getContentsList()
     {
-        if(contentsList == null)
-            contentsList = cacpDB.getDAO().selectContents();
-
         return this.contentsList;
     }
 
@@ -246,11 +270,14 @@ public class ChineseAccentComparison {
                     //dist = dist/((normPlayedPitchList.size()+normRecordedPitchList.size())/2);
                     //double sim = 100/(1+dist);
 
-                    double sim= 100*Similarity.JACCARD_SIM(playedGM, recordedGM);
+                    double sim = 100*Similarity.JACCARD_SIM(playedGM, recordedGM);
 
-                    if(sim > 40)
-                        sim += 20*(sim/100);
-                    sim = Math.min(sim, 100);
+                    if(sim < 90)
+                    {
+                        if(sim > 40)
+                            sim += 20*(sim/100);
+                        sim = Math.min(sim, 90);
+                    }
 
                     final double score = sim;
 

@@ -92,26 +92,11 @@ public class AddSoundFileActivity extends AppCompatActivity {
     //컨텐츠 등록 폼의 유효성 검사
     private boolean checkValidation()
     {
-        String title = titleEditText.getText().toString();
-        String description = descriptionEditText.getText().toString();
-
         if(filePath == null || filePath.length() <= 0)
         {
             Toast.makeText(this, "파일을 선택하세요.", Toast.LENGTH_SHORT).show();
             return false;
         }
-        /*
-        else if(title.length() <= 0)
-        {
-            Toast.makeText(this, "제목을 입력하세요.", Toast.LENGTH_SHORT).show();
-            return false;
-        }
-        else if(description.length() <= 0)
-        {
-            Toast.makeText(this, "설명을 입력하세요.", Toast.LENGTH_SHORT).show();
-            return false;
-        }
-        */
 
         return true;
     }

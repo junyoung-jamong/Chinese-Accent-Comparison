@@ -2,9 +2,11 @@ package com.smartjackwp.junyoung.cacp.Activities;
 
 import android.content.Intent;
 import android.graphics.Color;
+import android.os.AsyncTask;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.view.View;
+import android.widget.FrameLayout;
 import android.widget.ImageButton;
 import android.widget.TextView;
 
@@ -34,6 +36,9 @@ public class RecordActivity extends AppCompatActivity {
 
     TextView subtitleTextView;
     TextView pinyinTextView;
+
+    FrameLayout countLayout;
+    TextView countText;
 
     PitchDetectionHandler pdHandler;
 
@@ -89,6 +94,9 @@ public class RecordActivity extends AppCompatActivity {
 
         subtitleTextView = findViewById(R.id.subtitleTextView);
         pinyinTextView = findViewById(R.id.pinyinTextView);
+
+        countLayout = findViewById(R.id.countLayout);
+        countText = findViewById(R.id.countText);
 
         if(this.subtitle != null)
         {
@@ -167,12 +175,7 @@ public class RecordActivity extends AppCompatActivity {
         startRecordButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                cacp.startRecord(pdHandler);
-
-                recordedPitchList = new ArrayList<>();
-
-                startRecordButton.setVisibility(View.INVISIBLE);
-                endRecordButton.setVisibility(View.VISIBLE);
+                setStartRecording();
             }
         });
 
@@ -250,11 +253,64 @@ public class RecordActivity extends AppCompatActivity {
         cacp.stopRecord();
     }
 
+    private void setStartRecording(){
+        new CountDownTask().execute();
+    }
+
     private void stopRecording()
     {
         cacp.stopRecord();
         contents.setRecordedPitchList(recordedPitchList);
         cacp.measureSimilarity(contents);
         finish();
+    }
+
+    class CountDownTask extends AsyncTask<Void, Integer, Boolean>{
+        @Override
+        protected void onPreExecute() {
+            super.onPreExecute();
+
+            countLayout.setVisibility(View.VISIBLE);
+        }
+
+        @Override
+        protected void onProgressUpdate(Integer... values) {
+            super.onProgressUpdate(values);
+
+            if(values[0] == 0)
+                countText.setText("시작");
+            else
+                countText.setText(values[0]+"");
+
+
+        }
+
+        @Override
+        protected Boolean doInBackground(Void... voids) {
+            for(int i=3; i>-1; i--)
+            {
+                publishProgress(i);
+                try{
+                    Thread.sleep(1000);
+                }catch(Exception e){
+                    e.printStackTrace();
+                }
+            }
+
+            return true;
+        }
+
+        @Override
+        protected void onPostExecute(Boolean aBoolean) {
+            super.onPostExecute(aBoolean);
+            countLayout.setVisibility(View.INVISIBLE);
+
+            cacp.startRecord(pdHandler);
+
+            recordedPitchList = new ArrayList<>();
+
+            startRecordButton.setVisibility(View.INVISIBLE);
+            endRecordButton.setVisibility(View.VISIBLE);
+        }
     }
 }

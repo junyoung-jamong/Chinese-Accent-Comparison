@@ -1,5 +1,6 @@
 package com.smartjackwp.junyoung.cacp.Database;
 
+import android.content.ContentValues;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteException;
@@ -28,18 +29,30 @@ public class CacpDBDataAccessObject {
     public int insertContents(AccentContents accentContents)
     {
         try{
+
+            ContentValues values = new ContentValues();
+            values.put(CacpDBEntity.Contents.FILE_PATH, accentContents.getFilePath());
+            values.put(CacpDBEntity.Contents.TITLE, accentContents.getTitle());
+            values.put(CacpDBEntity.Contents.DESCRIPTION, accentContents.getDescription());
+            long id = sqliteDB.insert(CacpDBEntity.Contents.TABLE_NAME, null, values);
+
+            return (int)id;
+
+            /*
             String sqlInsert = CacpDBEntity.Contents.SQL_INSERT + "("
                                 + "'" + accentContents.getFilePath() + "', "
                                 + "'" + accentContents.getTitle() + "', "
                                 + "'" + accentContents.getDescription() + "'"
                                 + ")";
             sqliteDB.execSQL(sqlInsert) ;
+            sqliteDB.insert();
 
-            String selectQuery = "SELECT  * FROM " + "sqlite_sequence";
+            String selectQuery = "SELECT * FROM sqlite_sequence";
             Cursor cursor = sqliteDB.rawQuery(selectQuery, null);
             cursor.moveToLast();
             int id = cursor.getInt(0) ;
             return id;
+            */
         }catch(Exception e)
         {
             e.printStackTrace();

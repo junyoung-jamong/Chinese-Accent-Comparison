@@ -6,7 +6,8 @@
 
     <FrameLayout
         android:layout_width="match_parent"
-        android:layout_height="56dp">
+        android:layout_height="56dp"
+        android:background="@color/colorRed">
 
         <Button
             android:id="@+id/addFileButton"
@@ -24,6 +25,7 @@
             android:layout_height="wrap_content"
             android:layout_gravity="center"
             android:text="중국어 음성 리스트"
+            android:textColor="@color/colorPrimary"
             android:textSize="18sp"
             android:textStyle="bold" />
     </FrameLayout>
@@ -31,8 +33,15 @@
     <ListView
         android:id="@+id/contentsListView"
         android:layout_width="match_parent"
-        android:layout_height="430dp"
+        android:layout_height="match_parent"
         android:layout_weight="0.8"
+        android:background="#e0e0e0"
+        android:visibility="gone" />
+
+    <android.support.v7.widget.RecyclerView
+        android:id="@+id/soundListView"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
         android:background="#e0e0e0" />
 
 </LinearLayout>

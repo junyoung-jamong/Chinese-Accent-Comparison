@@ -49,6 +49,7 @@ public class NavigationActivity extends AppCompatActivity implements BottomNavig
         navigation.setOnNavigationItemSelectedListener(this);
 
         cacp = ChineseAccentComparison.getInstance(this);
+        cacp.setInitialSoundFile();
 
         contentLayout = findViewById(R.id.contentLayout);
 
